@@ -32,6 +32,8 @@ const defaultState = {
     { name: "Alex Rivera", id: "DEMO-04", role: "Associate", payRate: 14.25 },
     { name: "Cameron Ellis", id: "DEMO-05", role: "Associate", payRate: 14.75 },
     { name: "Riley Parker", id: "DEMO-06", role: "Associate", payRate: 13.75 },
+    { name: "Morgan Stone", id: "DEMO-07", role: "Associate", payRate: 14.5 },
+    { name: "Jamie Quinn", id: "DEMO-08", role: "Associate", payRate: 13.5 },
   ],
   budgets: [
     { day: "Sunday", date: "2026-07-26", budget: 5125, lastYear: 4980, buybackGoal: 360, lyBuybackUnits: 338, lyBuybackRatio: 1.084, payrollBudget: 970 },
@@ -43,7 +45,18 @@ const defaultState = {
     { day: "Saturday", date: "2026-08-01", budget: 11650, lastYear: 10980, buybackGoal: 720, lyBuybackUnits: 688, lyBuybackRatio: 1.146, payrollBudget: 1490 },
   ],
   goals: { loyalty: 15, buybackRatio: 1.1 },
-  weeklySchedule: days.map((_, index) => index === 4 ? structuredClone(demoShifts) : structuredClone(demoShifts.slice(0, index === 0 ? 4 : index === 6 ? 6 : 5))),
+  weeklySchedule: days.map((_, index) => {
+    const schedule = structuredClone(index === 4 ? demoShifts : demoShifts.slice(0, index === 0 ? 4 : index === 6 ? 6 : 5));
+    const replacements = {
+      0: { "Jordan Lee": "Morgan Stone", "Casey Morgan": "Jamie Quinn" },
+      1: { "Taylor Reed": "Morgan Stone" },
+      2: { "Casey Morgan": "Morgan Stone", "Alex Rivera": "Jamie Quinn" },
+      3: { "Jordan Lee": "Morgan Stone", "Cameron Ellis": "Jamie Quinn" },
+      5: { "Casey Morgan": "Jamie Quinn" },
+      6: { "Taylor Reed": "Morgan Stone", "Alex Rivera": "Jamie Quinn" },
+    };
+    return schedule.map((shift) => ({ ...shift, associate: replacements[index]?.[shift.associate] || shift.associate }));
+  }),
   priorities: [
     "Lead with loyalty at every register interaction",
     "Clear all buyback carts before the 5 PM handoff",
