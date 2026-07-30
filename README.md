@@ -2,6 +2,8 @@
 
 A mobile-friendly working prototype for a retail store daily operating workflow.
 
+[Open the live dashboard](https://jonnylost.github.io/2nc-store-operations-dashboard/)
+
 All names, identifiers, dates, budgets, schedules, and results in this public demo are fictional
 sample data. They do not represent an actual store or associate.
 
@@ -35,4 +37,4 @@ python3 -m http.server 8080
 ## Publishing
 
 The included GitHub Actions workflow deploys the site to GitHub Pages whenever `main` changes.
-GitHub Pages is public even when the source repository is private.
+The deployed prototype and this public source repository contain fictional sample data only.
