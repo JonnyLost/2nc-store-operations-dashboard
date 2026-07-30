@@ -1,0 +1,9 @@
+{
+  "name": "2NC Store Operations Demo",
+  "short_name": "Store Ops",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f2f0eb",
+  "theme_color": "#171717",
+  "description": "Demonstration retail daily operations dashboard."
+}
