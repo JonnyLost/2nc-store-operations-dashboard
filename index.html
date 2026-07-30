@@ -15,7 +15,7 @@
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <span class="brand-mark">2NC</span>
+          <span class="brand-mark"><img src="assets/2nc-logo.png" alt="2nd & Charles"></span>
           <div>
             <strong>Demo Store</strong>
             <span>Operations Dashboard</span>
@@ -171,10 +171,21 @@
               </div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th></th></tr></thead>
+                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th>Hourly pay rate</th><th></th></tr></thead>
                   <tbody id="associate-rows"></tbody>
                 </table>
               </div>
+            </article>
+
+            <article class="panel contest-setup-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Contest controls</h3>
+                  <p>Only active contests appear on Today, Daily Results, the agenda, and nightly report.</p>
+                </div>
+                <label class="toggle"><input id="contests-enabled" type="checkbox"><span></span> Contests active</label>
+              </div>
+              <div id="contest-setup-rows" class="contest-setup-rows"></div>
             </article>
           </div>
         </section>
@@ -194,9 +205,9 @@
               <div class="panel-header"><h3>Daily sales plan</h3></div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Day</th><th>Date</th><th>Budget</th><th>Last year</th></tr></thead>
+                  <thead><tr><th>Day</th><th>Date</th><th>Sales budget</th><th>Sales LY</th><th>Buyback goal</th><th>Buyback LY units</th><th>LY ratio</th><th>Payroll budget</th></tr></thead>
                   <tbody id="budget-rows"></tbody>
-                  <tfoot><tr><th colspan="2">Week total</th><th id="budget-total"></th><th id="ly-total"></th></tr></tfoot>
+                  <tfoot><tr><th colspan="2">Week total</th><th id="budget-total"></th><th id="ly-total"></th><th id="buyback-goal-total"></th><th id="buyback-ly-total"></th><th id="buyback-ratio-total"></th><th id="payroll-budget-total"></th></tr></tfoot>
                 </table>
               </div>
             </article>
@@ -220,18 +231,33 @@
             <div>
               <p class="eyebrow">People plan</p>
               <h2>Daily schedule &amp; assignments</h2>
-              <p>Build the shift once; Today, payroll, and the printed agenda all use it.</p>
+              <p>Build the full week. Each day feeds Today, payroll, and the printed agenda automatically.</p>
             </div>
             <div class="button-row">
+              <button type="button" class="button secondary" id="copy-previous-day">Copy previous day</button>
+              <button type="button" class="button secondary" id="copy-week">Copy demo week</button>
               <button type="button" class="button secondary" id="add-shift">+ Add shift</button>
               <button type="button" class="button primary" id="save-schedule">Save schedule</button>
             </div>
           </div>
 
+          <article class="panel weekly-overview-panel">
+            <div class="panel-header">
+              <div><p class="eyebrow">Monday–Sunday</p><h3>Weekly schedule overview</h3></div>
+              <div id="weekly-payroll-summary" class="payroll-summary"></div>
+            </div>
+            <div id="week-tabs" class="week-tabs" role="tablist" aria-label="Schedule day"></div>
+            <div class="table-wrap"><table class="weekly-overview"><thead id="weekly-overview-head"></thead><tbody id="weekly-overview-body"></tbody><tfoot id="weekly-overview-foot"></tfoot></table></div>
+          </article>
+
           <article class="panel">
+            <div class="panel-header">
+              <div><p class="eyebrow" id="schedule-day-label"></p><h3>Detailed shifts &amp; assignments</h3></div>
+              <div id="schedule-warnings" class="warning-list"></div>
+            </div>
             <div class="shift-header">
               <span>Associate</span><span>Start</span><span>End</span><span>Position</span>
-              <span>Break</span><span>Assignment</span><span></span>
+              <span>Break</span><span>Assignment</span><span>Hours</span><span>Cost</span><span></span>
             </div>
             <div id="shift-rows"></div>
           </article>
@@ -285,8 +311,10 @@
               <div>
                 <p class="eyebrow">Loyalty</p><h3>Today’s loyalty</h3>
                 <div class="fields two">
-                  <label>Opportunities<input id="result-loyalty-opps" type="number" min="0"></label>
-                  <label>Enrollments<input id="result-loyalty-enroll" type="number" min="0"></label>
+                  <label>New sign-ups<input id="result-new-signups" type="number" min="0"></label>
+                  <label>Blank customer transactions<input id="result-blank-transactions" type="number" min="0"></label>
+                  <label>Total transactions<input id="result-total-transactions" type="number" min="0"></label>
+                  <label>Transactions with names<input id="result-named-transactions" type="number" readonly></label>
                 </div>
                 <div class="live-callout" id="loyalty-callout"></div>
               </div>
@@ -294,15 +322,17 @@
             <article class="panel result-card">
               <div class="result-icon">P</div>
               <div>
-                <p class="eyebrow">Payroll</p><h3>Hours &amp; execution</h3>
-                <div class="fields two">
-                  <label>Scheduled hours<input id="result-scheduled-hours" type="number" min="0" step=".25"></label>
-                  <label>Worked hours<input id="result-worked-hours" type="number" min="0" step=".25"></label>
-                </div>
+                <p class="eyebrow">Payroll</p><h3>Hours &amp; cost</h3>
+                <div id="payroll-results-summary" class="payroll-result-grid"></div>
                 <div class="live-callout" id="payroll-callout"></div>
               </div>
             </article>
           </div>
+
+          <article class="panel contest-results-panel" id="contest-results-panel">
+            <div class="panel-header"><div><p class="eyebrow">Active contests</p><h3>Store &amp; associate tracking</h3></div></div>
+            <div id="contest-result-sections" class="contest-result-sections"></div>
+          </article>
         </section>
 
         <section class="page" id="page-agenda" data-page-panel="agenda">
@@ -317,7 +347,7 @@
 
           <article class="agenda-sheet" id="agenda-sheet">
             <header class="agenda-header">
-              <div class="agenda-logo">2NC</div>
+              <div class="agenda-logo"><img src="assets/2nc-logo.png" alt="2nd & Charles"></div>
               <div>
                 <p>DEMONSTRATION STORE · SAMPLE DATA</p>
                 <h2>DAILY OPERATIONS AGENDA</h2>

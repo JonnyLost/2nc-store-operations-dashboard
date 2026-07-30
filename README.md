@@ -10,13 +10,16 @@ sample data. They do not represent an actual store or associate.
 ## Included in this build
 
 - Daily command-center dashboard
-- Associate roster and store setup
-- Weekly sales budgets, last-year sales, and operational goals
-- Daily schedule, breaks, positions, assignments, and team priorities
-- Sales, buyback, loyalty, and payroll result entry
+- Associate roster, manager-only pay rates, and contest controls
+- Weekly sales, buyback, last-year, and payroll planning
+- Full weekly schedule with daily detail, payroll costing, copy tools, and warnings
+- Sales and buyback result entry, including unit goals and prior-year ratios
+- Excel-matched opportunity and transaction loyalty calculator
+- Scheduled/worked hours plus scheduled/actual payroll cost by associate
+- Active-contest tracking with Book Drive dollars, units, average transaction, and associate leaderboards
 - Automatic WTD and goal calculations
-- Letter-size landscape daily agenda
-- Nightly report generator
+- One-page letter-size landscape daily agenda with official branding
+- Nightly report generator with active-contest results
 - Device-local saving through browser storage
 - Installable web-app manifest
 
