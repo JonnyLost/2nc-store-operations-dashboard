@@ -1,4 +1,4 @@
-const STORAGE_KEY = "store-operations-demo-v2";
+const STORAGE_KEY = "store-operations-demo-v3";
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const positions = ["MOD", "Register", "Buy Counter", "Books", "Media", "Comics", "Floor", "Projects"];
 const roles = ["GM", "ASM", "MOD", "Associate"];
@@ -10,6 +10,9 @@ const pageNames = {
   results: ["Daily results", "Live scorecard"],
   agenda: ["Print agenda", "Associate huddle sheet"],
   nightly: ["Nightly report", "Closing MOD workflow"],
+  midday: ["Midday report", "Time-stamped update"],
+  communications: ["Communication log", "Manager-only history"],
+  periods: ["End-of reports", "Period close"],
 };
 
 const demoShifts = [
@@ -22,6 +25,8 @@ const demoShifts = [
 ];
 
 const defaultState = {
+  fiscalYear: 2027,
+  fiscalWeek: 26,
   operatingDate: "2026-07-30",
   selectedScheduleDay: 4,
   store: { number: "DEMO", name: "Sample Store", gm: "Jordan Lee", weekStart: "Sunday" },
@@ -75,20 +80,32 @@ const defaultState = {
   contestsEnabled: true,
   contests: [
     {
-      id: "bookDrive", name: "Book Drive", active: true, metric: "dollars", goal: 125,
+      id: "bookDrive", name: "Book Drive", active: true, metric: "dollars", goal: 250,
+      startWeek: 25, endWeek: 28,
       result: 82, units: 49, transactions: 31,
       associateResults: { "Jordan Lee": 15, "Casey Morgan": 18, "Taylor Reed": 14, "Alex Rivera": 21, "Cameron Ellis": 8, "Riley Parker": 6 },
+      weeklyResults: { "2027-W25": { result: 47, units: 28, transactions: 18, associateResults: { "Jordan Lee": 9, "Casey Morgan": 11, "Taylor Reed": 8, "Alex Rivera": 10, "Cameron Ellis": 5, "Riley Parker": 4 } } },
     },
     {
-      id: "coffeeTroops", name: "Coffee for the Troops", active: true, metric: "units", goal: 50,
+      id: "coffeeTroops", name: "Coffee for the Troops", active: true, metric: "units", goal: 100,
+      startWeek: 25, endWeek: 28,
       result: 38, units: 38, transactions: 0,
       associateResults: { "Jordan Lee": 8, "Casey Morgan": 7, "Taylor Reed": 6, "Alex Rivera": 7, "Cameron Ellis": 6, "Riley Parker": 4 },
+      weeklyResults: { "2027-W25": { result: 22, units: 22, transactions: 0, associateResults: { "Jordan Lee": 5, "Casey Morgan": 4, "Taylor Reed": 4, "Alex Rivera": 4, "Cameron Ellis": 3, "Riley Parker": 2 } } },
     },
     {
       id: "mysteryBoxes", name: "Mystery Boxes", active: false, metric: "units", goal: 20,
+      startWeek: 26, endWeek: 30,
       result: 14, units: 14, transactions: 0, associateResults: {},
     },
   ],
+  associateDaily: {},
+  weeks: {},
+  communications: [
+    { dateTime: "2026-07-29T10:30", associate: "Alex Rivera", manager: "Jordan Lee", category: "Recognition", notes: "Recognized strong customer service and ownership of the Fiction reset.", followup: "", status: "Resolved" },
+    { dateTime: "2026-07-30T09:15", associate: "Cameron Ellis", manager: "Jordan Lee", category: "General", notes: "Reviewed today’s media priorities and closing expectations.", followup: "2026-07-31", status: "Follow-up" },
+  ],
+  reportSnapshots: [],
   nightly: {
     mod: "Taylor Reed",
     wins: "Finished above budget and loyalty goal. Strong buyback flow through the afternoon.",
@@ -127,6 +144,79 @@ function checked(value) { return value ? "checked" : ""; }
 function safeDivide(a, b) { return Number(b) ? Number(a) / Number(b) : NaN; }
 function varianceClass(value) { return value >= 0 ? "positive" : "negative"; }
 function varianceText(value) { return `${value >= 0 ? "+" : "−"}${money(Math.abs(value))}`; }
+function weekKey(year = state.fiscalYear, week = state.fiscalWeek) { return `${year}-W${String(week).padStart(2, "0")}`; }
+function fiscalWeekStart(year, week) {
+  const anchor = new Date("2026-07-26T12:00:00");
+  const offset = ((Number(year) - 2027) * 52 + (Number(week) - 26)) * 7;
+  const date = new Date(anchor); date.setDate(date.getDate() + offset);
+  return date;
+}
+function dateValue(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+function emptyWeek(year, week) {
+  const start = fiscalWeekStart(year, week);
+  const budgets = days.map((day, index) => {
+    const date = new Date(start); date.setDate(start.getDate() + index);
+    return { day, date: dateValue(date), budget: 0, lastYear: 0, buybackGoal: 0, lyBuybackUnits: 0, lyBuybackRatio: 0, payrollBudget: 0 };
+  });
+  return {
+    budgets, weeklySchedule: days.map(() => []), priorities: [], teamMessage: "", results: {
+      sales: 0, retailUnits: 0, shelvableUnits: 0, nonRetailUnits: 0, buybackDollars: 0,
+      newSignups: 0, blankTransactions: 0, totalTransactions: 0, actualHours: {},
+    }, beforeToday: { sales: 0, lastYearSales: 0, retailUnits: 0, shelvableUnits: 0, newSignups: 0, blankTransactions: 0, totalTransactions: 0, payrollCost: 0 },
+    associateDaily: {},
+  };
+}
+function snapshotCurrentWeek() {
+  state.weeks ||= {};
+  state.weeks[weekKey()] = clone({
+    budgets: state.budgets, weeklySchedule: state.weeklySchedule, priorities: state.priorities,
+    teamMessage: state.teamMessage, results: state.results, beforeToday: state.beforeToday,
+    associateDaily: state.associateDaily,
+  });
+}
+function activateWeek(year, week, preferredDate = "") {
+  snapshotCurrentWeek();
+  state.fiscalYear = Number(year); state.fiscalWeek = Number(week);
+  const key = weekKey();
+  if (!state.weeks[key]) state.weeks[key] = emptyWeek(state.fiscalYear, state.fiscalWeek);
+  Object.assign(state, clone(state.weeks[key]));
+  const validDate = state.budgets.some((row) => row.date === preferredDate) ? preferredDate : state.budgets[0].date;
+  state.operatingDate = validDate;
+  state.selectedScheduleDay = Math.max(0, state.budgets.findIndex((row) => row.date === validDate));
+}
+function ensureAssociateDaily() {
+  state.associateDaily ||= {};
+  state.associates.forEach((associate, index) => {
+    state.associateDaily[associate.name] ||= {
+      buybackReceived: index < 6 ? [46, 54, 39, 51, 48, 42][index] : 0,
+      buybackNonRetail: index < 6 ? [5, 6, 4, 7, 5, 4][index] : 0,
+      contests: {},
+    };
+    activeContests().forEach((contest) => {
+      const entry = state.associateDaily[associate.name];
+      entry.contests[contest.id] ||= {
+        result: Number(contest.associateResults?.[associate.name] || 0),
+        units: contest.id === "bookDrive" ? Math.round(Number(contest.associateResults?.[associate.name] || 0) / 2) : 0,
+        transactions: contest.id === "bookDrive" ? Math.max(0, Math.round(Number(contest.associateResults?.[associate.name] || 0) / 3)) : 0,
+      };
+    });
+  });
+  activeContests().forEach((contest) => {
+    contest.weeklyResults ||= {};
+    if (!contest.weeklyResults[weekKey()]) {
+      const week = { result: 0, units: 0, transactions: 0, associateResults: {} };
+      state.associates.forEach((associate) => {
+        const values = state.associateDaily[associate.name]?.contests?.[contest.id] || {};
+        week.result += Number(values.result || 0); week.units += Number(values.units || 0); week.transactions += Number(values.transactions || 0);
+        week.associateResults[associate.name] = Number(values.result || 0);
+      });
+      contest.weeklyResults[weekKey()] = week;
+    }
+  });
+}
 
 function migrate(saved) {
   const merged = { ...clone(defaultState), ...saved };
@@ -134,6 +224,10 @@ function migrate(saved) {
   merged.weeklySchedule = saved.weeklySchedule || days.map((_, i) => i === 4 ? clone(saved.schedule || demoShifts) : clone(defaultState.weeklySchedule[i]));
   merged.results = { ...clone(defaultState.results), ...(saved.results || {}) };
   merged.contests = saved.contests || clone(defaultState.contests);
+  merged.communications = saved.communications || clone(defaultState.communications);
+  merged.reportSnapshots = saved.reportSnapshots || [];
+  merged.weeks = saved.weeks || {};
+  merged.associateDaily = saved.associateDaily || {};
   return merged;
 }
 function loadState() {
@@ -141,6 +235,7 @@ function loadState() {
   catch { return clone(defaultState); }
 }
 function persist(message = "Saved. Dashboard and agenda updated.") {
+  snapshotCurrentWeek();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   showToast(message);
 }
@@ -158,7 +253,28 @@ function currentDayIndex() {
 }
 function currentBudget() { return state.budgets[currentDayIndex()] || state.budgets[4]; }
 function currentSchedule() { return state.weeklySchedule[currentDayIndex()] || []; }
-function activeContests() { return state.contestsEnabled ? state.contests.filter((c) => c.active) : []; }
+function activeContests() {
+  return state.contestsEnabled
+    ? state.contests.filter((c) => c.active && state.fiscalWeek >= Number(c.startWeek || 1) && state.fiscalWeek <= Number(c.endWeek || 53))
+    : [];
+}
+function contestWeekEntry(contest, key = weekKey()) {
+  contest.weeklyResults ||= {};
+  return contest.weeklyResults[key] || { result: 0, units: 0, transactions: 0, associateResults: {} };
+}
+function contestTotals(contest) {
+  const entries = Object.entries(contest.weeklyResults || {}).filter(([key]) => {
+    const [yearPart, weekPart] = key.split("-W");
+    return Number(yearPart) === Number(state.fiscalYear) && Number(weekPart) >= Number(contest.startWeek || 1) && Number(weekPart) <= Math.min(Number(contest.endWeek || 53), Number(state.fiscalWeek));
+  }).map(([, value]) => value);
+  if (!entries.length) return { result: Number(contest.result || 0), units: Number(contest.units || 0), transactions: Number(contest.transactions || 0), associateResults: clone(contest.associateResults || {}) };
+  const total = { result: 0, units: 0, transactions: 0, associateResults: {} };
+  entries.forEach((entry) => {
+    total.result += Number(entry.result || 0); total.units += Number(entry.units || 0); total.transactions += Number(entry.transactions || 0);
+    Object.entries(entry.associateResults || {}).forEach(([name, value]) => { total.associateResults[name] = Number(total.associateResults[name] || 0) + Number(value || 0); });
+  });
+  return total;
+}
 function associateByName(name) { return state.associates.find((associate) => associate.name === name); }
 function parseMinutes(time) {
   if (!time) return 0;
@@ -203,7 +319,7 @@ function calculations() {
   };
 }
 
-function formatContestResult(contest, value = contest.result) {
+function formatContestResult(contest, value = contestTotals(contest).result) {
   return contest.metric === "dollars" ? money(value) : `${number(value)} units`;
 }
 
@@ -215,7 +331,10 @@ function renderToday() {
     { label: "Buyback ratio", value: ratio(calc.buybackRatio), meta: `Goal ${ratio(state.goals.buybackRatio)}`, detail: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "On goal" : "Below goal", tone: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "positive" : "negative" },
     { label: "Opportunity loyalty", value: percent(calc.opportunityLoyalty), meta: `Goal ${percent(state.goals.loyalty)}`, detail: "Sign-ups ÷ blanks", tone: calc.opportunityLoyalty >= state.goals.loyalty ? "positive" : "negative" },
     { label: "Payroll cost", value: money(calc.actualCost), meta: `Budget ${money(calc.budget.payrollBudget)}`, detail: `${money(Math.abs(calc.budget.payrollBudget - calc.actualCost))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over"}`, tone: calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative" },
-    ...contests.slice(0, 2).map((contest) => ({ label: contest.name, value: formatContestResult(contest), meta: `Goal ${formatContestResult(contest, contest.goal)}`, detail: `${percent(safeDivide(contest.result, contest.goal) * 100)} complete`, tone: "neutral" })),
+    ...contests.slice(0, 2).map((contest) => {
+      const total = contestTotals(contest);
+      return { label: contest.name, value: formatContestResult(contest, total.result), meta: `Goal ${formatContestResult(contest, contest.goal)}`, detail: `${percent(safeDivide(total.result, contest.goal) * 100)} complete`, tone: "neutral" };
+    }),
   ];
   document.querySelector("#today-metrics").style.setProperty("--metric-count", Math.min(metrics.length, 6));
   document.querySelector("#today-metrics").innerHTML = metrics.map((item) => `
@@ -235,10 +354,12 @@ function renderToday() {
   const container = document.querySelector("#today-contests");
   const panel = container.closest(".panel");
   panel.hidden = contests.length === 0;
-  container.innerHTML = contests.map((contest) => `
-    <div class="contest-item"><div><strong>${esc(contest.name)}</strong><span>${esc(formatContestResult(contest))} of ${esc(formatContestResult(contest, contest.goal))}</span>
-    <div class="progress"><span style="width:${Math.min(100, safeDivide(contest.result, contest.goal) * 100 || 0)}%"></span></div></div>
-    <span class="contest-score">${percent(safeDivide(contest.result, contest.goal) * 100)}</span></div>`).join("");
+  container.innerHTML = contests.map((contest) => {
+    const total = contestTotals(contest);
+    return `<div class="contest-item"><div><strong>${esc(contest.name)}</strong><span>${esc(formatContestResult(contest, total.result))} of ${esc(formatContestResult(contest, contest.goal))}</span>
+    <div class="progress"><span style="width:${Math.min(100, safeDivide(total.result, contest.goal) * 100 || 0)}%"></span></div></div>
+    <span class="contest-score">${percent(safeDivide(total.result, contest.goal) * 100)}</span></div>`;
+  }).join("");
 }
 
 function renderSetup() {
@@ -261,11 +382,14 @@ function renderSetup() {
       <label>Contest name<input class="contest-field" data-field="name" value="${esc(contest.name)}"></label>
       <label>Primary measure<select class="contest-field" data-field="metric"><option value="dollars" ${selected("dollars", contest.metric)}>Dollars</option><option value="units" ${selected("units", contest.metric)}>Units</option></select></label>
       <label>Goal<input class="contest-field" data-field="goal" type="number" min="0" step=".01" value="${contest.goal}"></label>
+      <label>Start week<input class="contest-field" data-field="startWeek" type="number" min="1" max="53" value="${contest.startWeek || state.fiscalWeek}"></label>
+      <label>End week<input class="contest-field" data-field="endWeek" type="number" min="1" max="53" value="${contest.endWeek || state.fiscalWeek}"></label>
     </div>`).join("");
   document.querySelector("#contest-setup-rows").classList.toggle("disabled-section", !state.contestsEnabled);
 }
 
 function renderGoals() {
+  document.querySelector("#planning-week-label").textContent = `FY${String(state.fiscalYear).slice(-2)} · Fiscal Week ${state.fiscalWeek}`;
   document.querySelector("#budget-rows").innerHTML = state.budgets.map((row, index) => `
     <tr data-budget-index="${index}"><td><strong>${esc(row.day)}</strong></td>
       <td><input class="inline-input budget-field" data-field="date" type="date" value="${row.date}"></td>
@@ -377,19 +501,44 @@ function renderResults() {
 }
 
 function renderContestResults() {
+  ensureAssociateDaily();
   const contests = activeContests();
-  document.querySelector("#contest-results-panel").hidden = contests.length === 0;
-  document.querySelector("#contest-result-sections").innerHTML = contests.map((contest) => `
-    <section class="contest-result-card" data-contest-id="${contest.id}">
-      <div class="contest-result-head"><div><h4>${esc(contest.name)}</h4><span>Goal ${esc(formatContestResult(contest, contest.goal))}</span></div>
-        <label>${contest.metric === "dollars" ? "Store dollars" : "Store units"}<input class="contest-result-field" data-field="result" type="number" min="0" step=".01" value="${contest.result}"></label>
-        ${contest.id === "bookDrive" ? `<label>Donated units<input class="contest-result-field" data-field="units" type="number" min="0" value="${contest.units}"></label><label>Donation transactions<input class="contest-result-field" data-field="transactions" type="number" min="0" value="${contest.transactions}"></label>` : ""}
-      </div>
-      ${contest.id === "bookDrive" ? `<div class="contest-stat">Average donation transaction <strong>${contest.transactions ? money(contest.result / contest.transactions, 2) : "—"}</strong></div>` : ""}
-      <div class="associate-tracker">
-        ${state.associates.map((associate) => `<label><span>${esc(associate.name)}</span><input class="associate-contest-field" data-associate="${esc(associate.name)}" type="number" min="0" step=".01" value="${contest.associateResults?.[associate.name] || 0}"></label>`).join("")}
-      </div>
-    </section>`).join("");
+  document.querySelector("#contest-results-panel").hidden = false;
+  const contestHeaders = contests.map((contest) => contest.id === "bookDrive"
+    ? `<th>Book Drive $</th><th>Donated units</th><th>Donation txns</th>`
+    : `<th>${esc(contest.name)} units</th>`).join("");
+  document.querySelector("#associate-daily-head").innerHTML = `<tr><th>Associate</th><th>BB units received</th><th>BB non-retail</th>${contestHeaders}</tr>`;
+  document.querySelector("#associate-daily-body").innerHTML = state.associates.map((associate) => {
+    const entry = state.associateDaily[associate.name];
+    const contestCells = contests.map((contest) => {
+      const values = entry.contests[contest.id] || { result: 0, units: 0, transactions: 0 };
+      if (contest.id === "bookDrive") return `
+        <td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-contest="${contest.id}" data-field="result" type="number" min="0" step=".01" value="${values.result || 0}"></td>
+        <td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-contest="${contest.id}" data-field="units" type="number" min="0" value="${values.units || 0}"></td>
+        <td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-contest="${contest.id}" data-field="transactions" type="number" min="0" value="${values.transactions || 0}"></td>`;
+      return `<td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-contest="${contest.id}" data-field="result" type="number" min="0" value="${values.result || 0}"></td>`;
+    }).join("");
+    return `<tr><td><strong>${esc(associate.name)}</strong></td>
+      <td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-field="buybackReceived" type="number" min="0" value="${entry.buybackReceived || 0}"></td>
+      <td><input class="daily-associate-field" data-associate="${esc(associate.name)}" data-field="buybackNonRetail" type="number" min="0" value="${entry.buybackNonRetail || 0}"></td>${contestCells}</tr>`;
+  }).join("");
+  const columnCount = 3 + contests.reduce((sum, contest) => sum + (contest.id === "bookDrive" ? 3 : 1), 0);
+  document.querySelector("#associate-daily-foot").innerHTML = `<tr><th>Store totals</th>${Array.from({ length: columnCount - 1 }, () => "<th>—</th>").join("")}</tr>`;
+  updateAssociateDailyTotals();
+  document.querySelector("#contest-cumulative-summary").innerHTML = contests.map((contest) => {
+    const total = contestTotals(contest);
+    return `<div><span>${esc(contest.name)} · Weeks ${contest.startWeek}–${contest.endWeek}</span><strong>${esc(formatContestResult(contest, total.result))} / ${esc(formatContestResult(contest, contest.goal))}</strong><small>${percent(safeDivide(total.result, contest.goal) * 100)} contest-to-date${contest.id === "bookDrive" ? ` · ${number(total.units)} units · avg ${total.transactions ? money(total.result / total.transactions, 2) : "—"}` : ""}</small></div>`;
+  }).join("");
+}
+
+function updateAssociateDailyTotals() {
+  const rows = [...document.querySelectorAll("#associate-daily-body tr")];
+  const fields = [...document.querySelectorAll("#associate-daily-head th")].slice(1);
+  const totals = [];
+  for (let column = 0; column < fields.length; column += 1) {
+    totals.push(rows.reduce((sum, row) => sum + Number(row.querySelectorAll("input")[column]?.value || 0), 0));
+  }
+  document.querySelector("#associate-daily-foot").innerHTML = `<tr><th>Store totals</th>${totals.map((value, i) => `<th>${fields[i].textContent.includes("$") ? money(value, 2) : number(value)}</th>`).join("")}</tr>`;
 }
 
 function updateResultCallouts() {
@@ -431,8 +580,9 @@ function renderAgenda() {
   const contestSection = document.querySelector("#agenda-contests").closest("section");
   contestSection.hidden = contests.length === 0;
   document.querySelector("#agenda-contests").innerHTML = contests.map((contest) => {
-    const extra = contest.id === "bookDrive" ? ` · ${number(contest.units)} units · Avg ${contest.transactions ? money(contest.result / contest.transactions, 2) : "—"}` : "";
-    return `<div class="agenda-contest-line"><strong>${esc(contest.name)}</strong><span>${esc(formatContestResult(contest))} / ${esc(formatContestResult(contest, contest.goal))}${esc(extra)}</span></div>`;
+    const total = contestTotals(contest);
+    const extra = contest.id === "bookDrive" ? ` · ${number(total.units)} units · Avg ${total.transactions ? money(total.result / total.transactions, 2) : "—"}` : "";
+    return `<div class="agenda-contest-line"><strong>${esc(contest.name)}</strong><span>${esc(formatContestResult(contest, total.result))} / ${esc(formatContestResult(contest, contest.goal))}${esc(extra)}</span></div>`;
   }).join("");
   document.querySelector("#agenda-message").textContent = state.teamMessage;
 }
@@ -443,9 +593,90 @@ function renderNightly() {
   ["wins", "opportunities", "followup", "handoff"].forEach((key) => { document.querySelector(`#nightly-${key}`).value = state.nightly[key]; });
 }
 
+function renderFiscalControls() {
+  const yearSelect = document.querySelector("#fiscal-year");
+  const weekSelect = document.querySelector("#fiscal-week");
+  yearSelect.innerHTML = [2026, 2027, 2028, 2029].map((year) => `<option value="${year}" ${selected(year, state.fiscalYear)}>FY${String(year).slice(-2)}</option>`).join("");
+  weekSelect.innerHTML = Array.from({ length: 53 }, (_, index) => index + 1).map((week) => `<option value="${week}" ${selected(week, state.fiscalWeek)}>Week ${week}</option>`).join("");
+  const first = state.budgets[0]?.date; const last = state.budgets[6]?.date;
+  const dateInput = document.querySelector("#operating-date");
+  dateInput.min = first; dateInput.max = last; dateInput.value = state.operatingDate;
+}
+
+function renderCommunications() {
+  const search = (document.querySelector("#communication-search")?.value || "").toLowerCase();
+  const status = document.querySelector("#communication-status-filter")?.value || "";
+  const category = document.querySelector("#communication-category-filter")?.value || "";
+  const entries = state.communications.filter((entry) =>
+    (!search || Object.values(entry).join(" ").toLowerCase().includes(search)) &&
+    (!status || entry.status === status) && (!category || entry.category === category));
+  document.querySelector("#communication-rows").innerHTML = entries.map((entry, index) => `
+    <tr data-communication-index="${state.communications.indexOf(entry)}">
+      <td><input class="communication-field" data-field="dateTime" type="datetime-local" value="${esc(entry.dateTime)}"></td>
+      <td><select class="communication-field" data-field="associate"><option value="">Store / general</option>${state.associates.map((a) => `<option ${selected(a.name, entry.associate)}>${esc(a.name)}</option>`).join("")}</select></td>
+      <td><select class="communication-field" data-field="manager">${state.associates.filter((a) => ["GM", "ASM", "MOD"].includes(a.role)).map((a) => `<option ${selected(a.name, entry.manager)}>${esc(a.name)}</option>`).join("")}</select></td>
+      <td><select class="communication-field" data-field="category">${["Attendance", "Performance", "Customer", "LP", "Recognition", "General"].map((value) => `<option ${selected(value, entry.category)}>${value}</option>`).join("")}</select></td>
+      <td><textarea class="communication-field" data-field="notes" rows="2">${esc(entry.notes)}</textarea></td>
+      <td><input class="communication-field" data-field="followup" type="date" value="${esc(entry.followup)}"></td>
+      <td><div class="log-status"><select class="communication-field" data-field="status">${["Open", "Follow-up", "Resolved"].map((value) => `<option ${selected(value, entry.status)}>${value}</option>`).join("")}</select><button class="remove-button remove-communication" aria-label="Remove entry">×</button></div></td>
+    </tr>`).join("") || `<tr><td colspan="7">No communication entries match these filters.</td></tr>`;
+}
+
+function renderSnapshots() {
+  document.querySelector("#snapshot-list").innerHTML = state.reportSnapshots.length
+    ? state.reportSnapshots.slice().reverse().map((snapshot) => `<article class="snapshot-item"><div><strong>${esc(snapshot.title)}</strong><span>${esc(snapshot.created)}</span></div><button type="button" class="text-button load-snapshot" data-snapshot-id="${snapshot.id}">View →</button></article>`).join("")
+    : `<p class="empty-state">No saved period snapshots yet.</p>`;
+  document.querySelector("#period-start").value ||= state.budgets[0].date;
+  document.querySelector("#period-end").value ||= state.budgets[6].date;
+}
+
+function reportContestLines() {
+  return activeContests().map((contest) => {
+    const total = contestTotals(contest);
+    return `${contest.name}: ${formatContestResult(contest, total.result)} of ${formatContestResult(contest, contest.goal)} (${percent(safeDivide(total.result, contest.goal) * 100)})`;
+  });
+}
+
+function generateMiddayReport() {
+  const calc = calculations();
+  const time = document.querySelector("#midday-time").value || "12:00";
+  const report = [
+    `STORE ${state.store.number} — MIDDAY REPORT — ${timeText(time)}`,
+    `${dateText(state.operatingDate, { weekday: "long", month: "long", day: "numeric" })} · FY${String(state.fiscalYear).slice(-2)} Week ${state.fiscalWeek}`, "",
+    `Sales: ${money(calc.sales)} / ${money(calc.budget.budget)} daily budget (${varianceText(calc.salesVariance)})`,
+    `WTD Sales: ${money(calc.wtdSales)} (${varianceText(calc.wtdVariance)} to budget; ${varianceText(calc.lyVariance)} to LY)`,
+    `Opportunity Loyalty: ${percent(calc.opportunityLoyalty)} · Transaction Loyalty: ${percent(calc.transactionLoyalty)}`,
+    ...(reportContestLines().length ? ["", "ACTIVE CONTESTS", ...reportContestLines()] : []),
+  ].join("\n");
+  document.querySelector("#midday-preview").textContent = report;
+}
+
+function generatePeriodReport() {
+  const calc = calculations();
+  const type = document.querySelector("#period-report-type").value;
+  const start = document.querySelector("#period-start").value;
+  const end = document.querySelector("#period-end").value;
+  const report = [
+    `STORE ${state.store.number} ${state.store.name.toUpperCase()} — ${type.toUpperCase()}`,
+    `${dateText(start, { month: "long", day: "numeric", year: "numeric" })} through ${dateText(end, { month: "long", day: "numeric", year: "numeric" })}`, "",
+    "PERFORMANCE",
+    `Sales: ${money(calc.wtdSales)} (${varianceText(calc.wtdVariance)} to budget; ${varianceText(calc.lyVariance)} to LY)`,
+    `Buyback: ${number(Number(state.beforeToday.retailUnits || 0) + Number(state.results.retailUnits || 0))} received · ${number(state.results.nonRetailUnits)} non-retail · ratio ${ratio(calc.buybackRatio)}`,
+    `Loyalty: ${percent(calc.opportunityLoyalty)} opportunity · ${percent(calc.transactionLoyalty)} transaction`,
+    `Payroll: ${money(calc.actualCost, 2)} actual · ${money(calc.scheduledCost, 2)} scheduled · ${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance`,
+    ...(reportContestLines().length ? ["", "CONTESTS", ...reportContestLines()] : []), "",
+    "ACCOMPLISHMENTS / WINS", document.querySelector("#period-wins").value.trim() || state.nightly.wins || "None noted.", "",
+    "OUTSTANDING FOLLOW-UP", state.communications.filter((entry) => entry.status !== "Resolved").map((entry) => `• ${entry.notes}`).join("\n") || "None.", "",
+    "MANAGER COMMENTARY", document.querySelector("#period-commentary").value.trim() || "None noted.",
+  ].join("\n");
+  document.querySelector("#period-preview").textContent = report;
+  return { type, report };
+}
+
 function renderAll() {
-  document.querySelector("#operating-date").value = state.operatingDate;
-  renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly();
+  ensureAssociateDaily();
+  renderFiscalControls();
+  renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
 }
 
 function updateBudgetTotalsFromInputs() {
@@ -486,6 +717,8 @@ function saveSetup() {
     state.contests[index].name = row.querySelector('[data-field="name"]').value.trim();
     state.contests[index].metric = row.querySelector('[data-field="metric"]').value;
     state.contests[index].goal = Number(row.querySelector('[data-field="goal"]').value || 0);
+    state.contests[index].startWeek = Number(row.querySelector('[data-field="startWeek"]').value || state.fiscalWeek);
+    state.contests[index].endWeek = Number(row.querySelector('[data-field="endWeek"]').value || state.fiscalWeek);
   });
   state.weeklySchedule.flat().forEach((shift) => {
     const idx = oldNames.indexOf(shift.associate);
@@ -522,21 +755,38 @@ function saveSchedule() {
 
 function saveResults() {
   state.results = draftResults();
-  activeContests().forEach((contest) => {
-    const section = document.querySelector(`[data-contest-id="${contest.id}"]`);
-    if (!section) return;
-    section.querySelectorAll(".contest-result-field").forEach((input) => { contest[input.dataset.field] = Number(input.value || 0); });
-    contest.associateResults = Object.fromEntries([...section.querySelectorAll(".associate-contest-field")].map((input) => [input.dataset.associate, Number(input.value || 0)]));
+  ensureAssociateDaily();
+  document.querySelectorAll(".daily-associate-field").forEach((input) => {
+    const entry = state.associateDaily[input.dataset.associate];
+    if (input.dataset.contest) {
+      entry.contests[input.dataset.contest] ||= { result: 0, units: 0, transactions: 0 };
+      entry.contests[input.dataset.contest][input.dataset.field] = Number(input.value || 0);
+    } else {
+      entry[input.dataset.field] = Number(input.value || 0);
+    }
   });
-  persist("Daily results, payroll, and contests saved."); renderAll();
+  state.results.retailUnits = Object.values(state.associateDaily).reduce((sum, entry) => sum + Number(entry.buybackReceived || 0), 0);
+  state.results.nonRetailUnits = Object.values(state.associateDaily).reduce((sum, entry) => sum + Number(entry.buybackNonRetail || 0), 0);
+  activeContests().forEach((contest) => {
+    const week = { result: 0, units: 0, transactions: 0, associateResults: {} };
+    state.associates.forEach((associate) => {
+      const values = state.associateDaily[associate.name]?.contests?.[contest.id] || {};
+      week.result += Number(values.result || 0); week.units += Number(values.units || 0); week.transactions += Number(values.transactions || 0);
+      week.associateResults[associate.name] = Number(values.result || 0);
+    });
+    contest.weeklyResults ||= {};
+    contest.weeklyResults[weekKey()] = week;
+  });
+  persist("Daily associate, buyback, payroll, and contest results saved."); renderAll();
 }
 
 function generateNightlyReport() {
   state.nightly = Object.fromEntries(["mod", "wins", "opportunities", "followup", "handoff"].map((key) => [key, document.querySelector(`#nightly-${key}`).value.trim()]));
   const calc = calculations();
   const contestLines = activeContests().map((contest) => {
-    const leaders = Object.entries(contest.associateResults || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, value]) => `${name} ${contest.metric === "dollars" ? money(value) : number(value)}`).join(", ");
-    return `${contest.name}: ${formatContestResult(contest)} / ${formatContestResult(contest, contest.goal)}${contest.id === "bookDrive" ? `; ${number(contest.units)} units; avg transaction ${contest.transactions ? money(contest.result / contest.transactions, 2) : "—"}` : ""}${leaders ? `; leaders: ${leaders}` : ""}`;
+    const total = contestTotals(contest);
+    const leaders = Object.entries(total.associateResults || {}).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, value]) => `${name} ${contest.metric === "dollars" ? money(value) : number(value)}`).join(", ");
+    return `${contest.name}: ${formatContestResult(contest, total.result)} / ${formatContestResult(contest, contest.goal)}${contest.id === "bookDrive" ? `; ${number(total.units)} units; avg transaction ${total.transactions ? money(total.result / total.transactions, 2) : "—"}` : ""}${leaders ? `; leaders: ${leaders}` : ""}`;
   });
   const report = [
     `STORE ${state.store.number} ${state.store.name.toUpperCase()} — NIGHTLY REPORT`,
@@ -555,6 +805,46 @@ function generateNightlyReport() {
   persist("Nightly report generated and saved.");
 }
 
+function copyGoalsForward() {
+  saveGoals();
+  const source = clone(state.budgets);
+  const nextWeek = state.fiscalWeek === 53 ? 1 : state.fiscalWeek + 1;
+  const nextYear = state.fiscalWeek === 53 ? state.fiscalYear + 1 : state.fiscalYear;
+  activateWeek(nextYear, nextWeek);
+  state.budgets = state.budgets.map((row, index) => ({
+    ...row, budget: source[index].budget, lastYear: source[index].lastYear, buybackGoal: source[index].buybackGoal,
+    lyBuybackUnits: source[index].lyBuybackUnits, lyBuybackRatio: source[index].lyBuybackRatio, payrollBudget: source[index].payrollBudget,
+  }));
+  persist(`Goals copied to FY${String(nextYear).slice(-2)} Week ${nextWeek}.`); renderAll();
+}
+
+function importPlanRows() {
+  const rows = document.querySelector("#bulk-plan-data").value.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  let imported = 0;
+  rows.forEach((line) => {
+    const [weekRaw, dayRaw, budget, lastYear, bbGoal, lyUnits, lyRatio, payroll] = line.split(",").map((value) => value.trim());
+    const week = Number(weekRaw); const dayIndex = days.findIndex((day) => day.toLowerCase().startsWith(dayRaw.toLowerCase().slice(0, 3)));
+    if (!week || dayIndex < 0) return;
+    const key = weekKey(state.fiscalYear, week);
+    state.weeks[key] ||= emptyWeek(state.fiscalYear, week);
+    Object.assign(state.weeks[key].budgets[dayIndex], {
+      budget: Number(budget || 0), lastYear: Number(lastYear || 0), buybackGoal: Number(bbGoal || 0),
+      lyBuybackUnits: Number(lyUnits || 0), lyBuybackRatio: Number(lyRatio || 0), payrollBudget: Number(payroll || 0),
+    });
+    imported += 1;
+  });
+  const selected = clone(state.weeks[weekKey()] || {});
+  if (selected.budgets) Object.assign(state, selected);
+  persist(`${imported} planning rows imported.`); renderAll();
+}
+
+function saveCommunicationRows() {
+  document.querySelectorAll("[data-communication-index]").forEach((row) => {
+    const entry = state.communications[Number(row.dataset.communicationIndex)];
+    row.querySelectorAll(".communication-field").forEach((field) => { entry[field.dataset.field] = field.value; });
+  });
+}
+
 document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-page]"); const go = event.target.closest("[data-go]");
   if (nav) goTo(nav.dataset.page); if (go) goTo(go.dataset.go);
@@ -564,7 +854,32 @@ document.addEventListener("click", (event) => {
   if (event.target.closest("#save-schedule")) saveSchedule();
   if (event.target.closest("#save-results")) saveResults();
   if (event.target.closest("#generate-report")) generateNightlyReport();
+  if (event.target.closest("#generate-midday")) generateMiddayReport();
+  if (event.target.closest("#generate-period")) generatePeriodReport();
   if (event.target.closest("#print-agenda")) window.print();
+  if (event.target.closest("#bulk-plan-toggle")) document.querySelector("#bulk-plan-panel").hidden = !document.querySelector("#bulk-plan-panel").hidden;
+  if (event.target.closest("#import-plan")) importPlanRows();
+  if (event.target.closest("#copy-goals-forward")) copyGoalsForward();
+  if (event.target.closest("#add-communication")) {
+    saveCommunicationRows();
+    state.communications.unshift({ dateTime: `${state.operatingDate}T12:00`, associate: "", manager: state.store.gm, category: "General", notes: "", followup: "", status: "Open" });
+    persist("New communication entry added."); renderCommunications();
+  }
+  const removeCommunication = event.target.closest(".remove-communication");
+  if (removeCommunication) {
+    state.communications.splice(Number(removeCommunication.closest("[data-communication-index]").dataset.communicationIndex), 1);
+    persist("Communication entry removed."); renderCommunications();
+  }
+  if (event.target.closest("#save-snapshot")) {
+    const generated = generatePeriodReport();
+    const snapshot = { id: Date.now(), title: `${generated.type} · FY${String(state.fiscalYear).slice(-2)} W${state.fiscalWeek}`, created: new Date().toLocaleString(), report: generated.report };
+    state.reportSnapshots.push(snapshot); persist("Permanent report snapshot saved."); renderSnapshots();
+  }
+  const loadSnapshot = event.target.closest(".load-snapshot");
+  if (loadSnapshot) {
+    const snapshot = state.reportSnapshots.find((item) => String(item.id) === loadSnapshot.dataset.snapshotId);
+    if (snapshot) document.querySelector("#period-preview").textContent = snapshot.report;
+  }
   const dayTab = event.target.closest("[data-schedule-day]");
   if (dayTab) { collectSchedule(); state.selectedScheduleDay = Number(dayTab.dataset.scheduleDay); renderSchedule(); }
   if (event.target.closest("#add-associate")) { state.associates.push({ name: "New associate", id: "", role: "Associate", payRate: 14 }); renderSetup(); }
@@ -582,6 +897,8 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("#copy-week")) { state.weeklySchedule = clone(defaultState.weeklySchedule); renderSchedule(); showToast("Demo week copied. Save when ready."); }
   if (event.target.closest("#copy-report")) navigator.clipboard.writeText(document.querySelector("#report-preview").textContent).then(() => showToast("Nightly report copied.")).catch(() => showToast("Copy was blocked. Select the report text to copy it."));
+  if (event.target.closest("#copy-midday")) navigator.clipboard.writeText(document.querySelector("#midday-preview").textContent).then(() => showToast("Midday report copied."));
+  if (event.target.closest("#copy-period")) navigator.clipboard.writeText(document.querySelector("#period-preview").textContent).then(() => showToast("Period report copied."));
   if (event.target.closest("#reset-demo") && window.confirm("Reset all prototype entries on this device to the original sample data?")) {
     state = clone(defaultState); localStorage.removeItem(STORAGE_KEY); renderAll(); goTo("today"); showToast("Prototype reset.");
   }
@@ -590,13 +907,9 @@ document.addEventListener("click", (event) => {
 document.addEventListener("input", (event) => {
   if (event.target.matches(".budget-field")) updateBudgetTotalsFromInputs();
   if (event.target.closest("#page-results")) updateResultCallouts();
-  if (event.target.matches(".contest-result-field")) {
-    const section = event.target.closest("[data-contest-id]"); const contest = state.contests.find((c) => c.id === section.dataset.contestId);
-    if (contest?.id === "bookDrive") {
-      const result = Number(section.querySelector('[data-field="result"]').value || 0); const transactions = Number(section.querySelector('[data-field="transactions"]').value || 0);
-      section.querySelector(".contest-stat strong").textContent = transactions ? money(result / transactions, 2) : "—";
-    }
-  }
+  if (event.target.matches(".daily-associate-field")) updateAssociateDailyTotals();
+  if (event.target.matches(".communication-field")) { saveCommunicationRows(); persist("Communication log saved."); }
+  if (event.target.matches("#communication-search, #communication-status-filter, #communication-category-filter")) renderCommunications();
   if (event.target.matches(".shift-field")) {
     collectSchedule(); renderWeekOverview(); renderScheduleWarnings();
     const row = event.target.closest("[data-shift-index]"); const shift = state.weeklySchedule[state.selectedScheduleDay][Number(row.dataset.shiftIndex)];
@@ -604,6 +917,12 @@ document.addEventListener("input", (event) => {
   }
 });
 document.querySelector("#contests-enabled").addEventListener("change", (event) => document.querySelector("#contest-setup-rows").classList.toggle("disabled-section", !event.target.checked));
+document.querySelector("#fiscal-year").addEventListener("change", (event) => {
+  activateWeek(Number(event.target.value), state.fiscalWeek); persist("Fiscal year updated."); renderAll();
+});
+document.querySelector("#fiscal-week").addEventListener("change", (event) => {
+  activateWeek(state.fiscalYear, Number(event.target.value)); persist("Fiscal week updated."); renderAll();
+});
 document.querySelector("#operating-date").addEventListener("change", (event) => {
   state.operatingDate = event.target.value; const index = state.budgets.findIndex((row) => row.date === state.operatingDate); if (index >= 0) state.selectedScheduleDay = index;
   persist("Operating date updated."); renderAll();
