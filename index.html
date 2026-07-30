@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#171717">
+    <meta
+      name="description"
+      content="Retail store daily operations dashboard, schedule, goals, agenda, and nightly report.">
+    <title>2NC Store Operations Demo</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">2NC</span>
+          <div>
+            <strong>Demo Store</strong>
+            <span>Operations Dashboard</span>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Main navigation">
+          <button type="button" class="nav-link active" data-page="today">
+            <span>01</span> Today
+          </button>
+          <button type="button" class="nav-link" data-page="setup">
+            <span>02</span> Store Setup
+          </button>
+          <button type="button" class="nav-link" data-page="goals">
+            <span>03</span> Budgets &amp; Goals
+          </button>
+          <button type="button" class="nav-link" data-page="schedule">
+            <span>04</span> Schedule
+          </button>
+          <button type="button" class="nav-link" data-page="results">
+            <span>05</span> Daily Results
+          </button>
+          <button type="button" class="nav-link" data-page="agenda">
+            <span>06</span> Print Agenda
+          </button>
+          <button type="button" class="nav-link" data-page="nightly">
+            <span>07</span> Nightly Report
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Prototype mode</strong>
+            <span>Saved on this device</span>
+          </div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <button type="button" class="menu-button" id="menu-button" aria-label="Open navigation">☰</button>
+          <div>
+            <p class="eyebrow" id="page-eyebrow">Daily command center</p>
+            <h1 id="page-title">Today</h1>
+          </div>
+          <div class="topbar-actions">
+            <label class="date-control">
+              <span>Operating date</span>
+              <input type="date" id="operating-date">
+            </label>
+            <button type="button" class="button secondary" id="reset-demo">Reset demo</button>
+          </div>
+        </header>
+
+        <div class="prototype-note">
+          <strong>Working prototype:</strong> sample information is stored only in this browser.
+          Secure shared access and sign-in come in the production phase.
+        </div>
+
+        <section class="page active" id="page-today" data-page-panel="today">
+          <div class="hero-row">
+            <div>
+              <p class="eyebrow">Thursday · Demonstration store</p>
+              <h2>Good afternoon, team.</h2>
+              <p id="today-summary">The store is above budget WTD. Keep loyalty and buyback moving.</p>
+            </div>
+            <div class="hero-actions">
+              <button type="button" class="button secondary" data-go="schedule">Edit schedule</button>
+              <button type="button" class="button primary" data-go="results">Enter results</button>
+            </div>
+          </div>
+
+          <div class="metric-grid" id="today-metrics"></div>
+
+          <div class="dashboard-grid">
+            <article class="panel schedule-panel">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">People plan</p>
+                  <h3>Today’s schedule &amp; assignments</h3>
+                </div>
+                <button type="button" class="text-button" data-go="schedule">Manage →</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Associate</th>
+                      <th>Shift</th>
+                      <th>Position</th>
+                      <th>Break</th>
+                      <th>Assignment</th>
+                    </tr>
+                  </thead>
+                  <tbody id="today-schedule"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <div class="side-stack">
+              <article class="panel priority-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Shift focus</p>
+                    <h3>Today’s priorities</h3>
+                  </div>
+                </div>
+                <div id="today-priorities" class="priority-list"></div>
+              </article>
+
+              <article class="panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Active contests</p>
+                    <h3>Leaderboard</h3>
+                  </div>
+                </div>
+                <div id="today-contests" class="contest-list"></div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-setup" data-page-panel="setup">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">One-time foundation</p>
+              <h2>Store setup</h2>
+              <p>Set up the store, management team, associate roster, and standard positions.</p>
+            </div>
+            <button type="button" class="button primary" id="save-setup">Save setup</button>
+          </div>
+
+          <div class="form-grid">
+            <article class="panel">
+              <div class="panel-header"><h3>Store information</h3></div>
+              <div class="fields two">
+                <label>Store number<input id="store-number" type="text"></label>
+                <label>Store name<input id="store-name" type="text"></label>
+                <label>General manager<input id="gm-name" type="text"></label>
+                <label>Week starts<select id="week-start"><option>Sunday</option><option>Monday</option></select></label>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Associate roster</h3>
+                  <p>Names feed the schedule, contests, payroll, and nightly report.</p>
+                </div>
+                <button type="button" class="button secondary small" id="add-associate">+ Add associate</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th></th></tr></thead>
+                  <tbody id="associate-rows"></tbody>
+                </table>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" id="page-goals" data-page-panel="goals">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Weekly plan</p>
+              <h2>Budgets &amp; goals</h2>
+              <p>Enter the week once. Daily and WTD calculations update everywhere.</p>
+            </div>
+            <button type="button" class="button primary" id="save-goals">Save budgets &amp; goals</button>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-header"><h3>Daily sales plan</h3></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Day</th><th>Date</th><th>Budget</th><th>Last year</th></tr></thead>
+                  <tbody id="budget-rows"></tbody>
+                  <tfoot><tr><th colspan="2">Week total</th><th id="budget-total"></th><th id="ly-total"></th></tr></tfoot>
+                </table>
+              </div>
+            </article>
+
+            <div class="side-stack">
+              <article class="panel">
+                <div class="panel-header"><h3>Performance goals</h3></div>
+                <div class="fields two" id="goal-fields"></div>
+              </article>
+              <article class="panel orange-panel">
+                <p class="eyebrow">How it works</p>
+                <h3>One source of truth</h3>
+                <p>Sales, loyalty, buyback, payroll, contests, the agenda, and the nightly report all use these values.</p>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <section class="page" id="page-schedule" data-page-panel="schedule">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">People plan</p>
+              <h2>Daily schedule &amp; assignments</h2>
+              <p>Build the shift once; Today, payroll, and the printed agenda all use it.</p>
+            </div>
+            <div class="button-row">
+              <button type="button" class="button secondary" id="add-shift">+ Add shift</button>
+              <button type="button" class="button primary" id="save-schedule">Save schedule</button>
+            </div>
+          </div>
+
+          <article class="panel">
+            <div class="shift-header">
+              <span>Associate</span><span>Start</span><span>End</span><span>Position</span>
+              <span>Break</span><span>Assignment</span><span></span>
+            </div>
+            <div id="shift-rows"></div>
+          </article>
+
+          <div class="form-grid schedule-notes">
+            <article class="panel">
+              <div class="panel-header"><h3>Daily priorities</h3></div>
+              <div id="priority-fields" class="fields"></div>
+            </article>
+            <article class="panel">
+              <div class="panel-header"><h3>Approved team communication</h3></div>
+              <label>Message for the agenda<textarea id="team-message" rows="7"></textarea></label>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" id="page-results" data-page-panel="results">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Live scorecard</p>
+              <h2>Daily results</h2>
+              <p>Enter results throughout the day; WTD totals and goal gaps calculate automatically.</p>
+            </div>
+            <button type="button" class="button primary" id="save-results">Save results</button>
+          </div>
+
+          <div class="result-grid">
+            <article class="panel result-card">
+              <div class="result-icon">S</div>
+              <div>
+                <p class="eyebrow">Sales</p><h3>Today’s net sales</h3>
+                <label>Sales dollars<input id="result-sales" type="number" min="0"></label>
+                <div class="live-callout" id="sales-callout"></div>
+              </div>
+            </article>
+            <article class="panel result-card">
+              <div class="result-icon">B</div>
+              <div>
+                <p class="eyebrow">Buyback</p><h3>Today’s buying</h3>
+                <div class="fields two">
+                  <label>Retail units<input id="result-retail-units" type="number" min="0"></label>
+                  <label>Shelvable units<input id="result-shelvable-units" type="number" min="0"></label>
+                  <label>Non-retail units<input id="result-nonretail-units" type="number" min="0"></label>
+                  <label>Buyback dollars<input id="result-buyback-dollars" type="number" min="0"></label>
+                </div>
+                <div class="live-callout" id="buyback-callout"></div>
+              </div>
+            </article>
+            <article class="panel result-card">
+              <div class="result-icon">L</div>
+              <div>
+                <p class="eyebrow">Loyalty</p><h3>Today’s loyalty</h3>
+                <div class="fields two">
+                  <label>Opportunities<input id="result-loyalty-opps" type="number" min="0"></label>
+                  <label>Enrollments<input id="result-loyalty-enroll" type="number" min="0"></label>
+                </div>
+                <div class="live-callout" id="loyalty-callout"></div>
+              </div>
+            </article>
+            <article class="panel result-card">
+              <div class="result-icon">P</div>
+              <div>
+                <p class="eyebrow">Payroll</p><h3>Hours &amp; execution</h3>
+                <div class="fields two">
+                  <label>Scheduled hours<input id="result-scheduled-hours" type="number" min="0" step=".25"></label>
+                  <label>Worked hours<input id="result-worked-hours" type="number" min="0" step=".25"></label>
+                </div>
+                <div class="live-callout" id="payroll-callout"></div>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="page" id="page-agenda" data-page-panel="agenda">
+          <div class="section-intro no-print">
+            <div>
+              <p class="eyebrow">Associate huddle sheet</p>
+              <h2>Printable daily agenda</h2>
+              <p>Generated automatically from today’s plan and approved communication.</p>
+            </div>
+            <button type="button" class="button primary" id="print-agenda">Print 8.5×11 landscape</button>
+          </div>
+
+          <article class="agenda-sheet" id="agenda-sheet">
+            <header class="agenda-header">
+              <div class="agenda-logo">2NC</div>
+              <div>
+                <p>DEMONSTRATION STORE · SAMPLE DATA</p>
+                <h2>DAILY OPERATIONS AGENDA</h2>
+              </div>
+              <div class="agenda-date" id="agenda-date"></div>
+            </header>
+            <div class="agenda-metrics" id="agenda-metrics"></div>
+            <div class="agenda-body">
+              <div>
+                <div class="agenda-section-title">TODAY’S TEAM &amp; ASSIGNMENTS</div>
+                <table class="agenda-table">
+                  <thead><tr><th>Associate</th><th>Shift</th><th>Position</th><th>Break</th><th>Assignment</th></tr></thead>
+                  <tbody id="agenda-schedule"></tbody>
+                </table>
+              </div>
+              <div class="agenda-side">
+                <section>
+                  <div class="agenda-section-title">TODAY’S PRIORITIES</div>
+                  <ol id="agenda-priorities"></ol>
+                </section>
+                <section>
+                  <div class="agenda-section-title">CONTESTS &amp; GOALS</div>
+                  <div id="agenda-contests"></div>
+                </section>
+                <section>
+                  <div class="agenda-section-title">TEAM COMMUNICATION</div>
+                  <p id="agenda-message"></p>
+                </section>
+              </div>
+            </div>
+            <footer class="agenda-footer">
+              <strong>MOD NOTES:</strong>
+              <span></span>
+              <span></span>
+              <strong>HUDDLE ACKNOWLEDGMENT:</strong>
+              <span class="initial-line"></span>
+              <span class="initial-line"></span>
+              <span class="initial-line"></span>
+              <span class="initial-line"></span>
+            </footer>
+          </article>
+        </section>
+
+        <section class="page" id="page-nightly" data-page-panel="nightly">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Closing MOD workflow</p>
+              <h2>Nightly report</h2>
+              <p>Performance results fill automatically. Add the shift story and send a clean recap.</p>
+            </div>
+            <button type="button" class="button primary" id="generate-report">Generate report</button>
+          </div>
+
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-header"><h3>Closing notes</h3></div>
+              <div class="fields">
+                <label>Closing MOD<select id="nightly-mod"></select></label>
+                <label>Wins / celebrations<textarea id="nightly-wins" rows="3"></textarea></label>
+                <label>Opportunities / misses<textarea id="nightly-opportunities" rows="3"></textarea></label>
+                <label>Facilities, LP, or customer follow-up<textarea id="nightly-followup" rows="3"></textarea></label>
+                <label>Tomorrow’s handoff<textarea id="nightly-handoff" rows="3"></textarea></label>
+              </div>
+            </article>
+            <article class="panel report-preview-panel">
+              <div class="panel-header">
+                <h3>Report preview</h3>
+                <button type="button" class="button secondary small" id="copy-report">Copy report</button>
+              </div>
+              <pre id="report-preview">Complete the closing notes, then generate the report.</pre>
+            </article>
+          </div>
+        </section>
+
+        <div class="toast" id="toast" role="status" aria-live="polite"></div>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
