@@ -44,6 +44,15 @@
           <button type="button" class="nav-link" data-page="nightly">
             <span>07</span> Nightly Report
           </button>
+          <button type="button" class="nav-link" data-page="midday">
+            <span>08</span> Midday Report
+          </button>
+          <button type="button" class="nav-link" data-page="communications">
+            <span>09</span> Communication Log
+          </button>
+          <button type="button" class="nav-link" data-page="periods">
+            <span>10</span> End-of Reports
+          </button>
         </nav>
 
         <div class="sidebar-footer">
@@ -63,6 +72,14 @@
             <h1 id="page-title">Today</h1>
           </div>
           <div class="topbar-actions">
+            <label class="date-control">
+              <span>Fiscal year</span>
+              <select id="fiscal-year"></select>
+            </label>
+            <label class="date-control">
+              <span>Fiscal week</span>
+              <select id="fiscal-week"></select>
+            </label>
             <label class="date-control">
               <span>Operating date</span>
               <input type="date" id="operating-date">
@@ -200,6 +217,25 @@
             <button type="button" class="button primary" id="save-goals">Save budgets &amp; goals</button>
           </div>
 
+          <article class="panel planning-toolbar">
+            <div>
+              <p class="eyebrow">Annual planning</p>
+              <h3 id="planning-week-label">Fiscal week</h3>
+              <p>Enter a single week, copy it forward, or paste quarter/full-year data into the selected fiscal year.</p>
+            </div>
+            <div class="button-row">
+              <button type="button" class="button secondary" id="copy-goals-forward">Copy to next week</button>
+              <button type="button" class="button secondary" id="bulk-plan-toggle">Quarter / annual import</button>
+            </div>
+          </article>
+          <article class="panel bulk-plan-panel" id="bulk-plan-panel" hidden>
+            <div class="panel-header">
+              <div><h3>Paste multi-week plan</h3><p>CSV columns: fiscal week, day, sales goal, LY sales, BB unit goal, LY BB units, LY BB ratio, payroll budget.</p></div>
+              <button type="button" class="button primary small" id="import-plan">Import rows</button>
+            </div>
+            <textarea id="bulk-plan-data" rows="7" placeholder="31,Sunday,5125,4980,360,338,1.084,970"></textarea>
+          </article>
+
           <div class="dashboard-grid">
             <article class="panel">
               <div class="panel-header"><h3>Daily sales plan</h3></div>
@@ -330,8 +366,17 @@
           </div>
 
           <article class="panel contest-results-panel" id="contest-results-panel">
-            <div class="panel-header"><div><p class="eyebrow">Active contests</p><h3>Store &amp; associate tracking</h3></div></div>
-            <div id="contest-result-sections" class="contest-result-sections"></div>
+            <div class="panel-header">
+              <div><p class="eyebrow">One daily entry table</p><h3>Daily associate tracking</h3><p>Buyback totals and active contests roll up automatically.</p></div>
+            </div>
+            <div class="table-wrap">
+              <table class="associate-daily-table">
+                <thead id="associate-daily-head"></thead>
+                <tbody id="associate-daily-body"></tbody>
+                <tfoot id="associate-daily-foot"></tfoot>
+              </table>
+            </div>
+            <div id="contest-cumulative-summary" class="contest-cumulative-summary"></div>
           </article>
         </section>
 
@@ -420,6 +465,72 @@
               <pre id="report-preview">Complete the closing notes, then generate the report.</pre>
             </article>
           </div>
+        </section>
+
+        <section class="page" id="page-midday" data-page-panel="midday">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Manager update</p>
+              <h2>Midday report</h2>
+              <p>Generate a time-stamped sales, loyalty, and contest update.</p>
+            </div>
+            <div class="button-row">
+              <label>Report time<input id="midday-time" type="time" value="14:00"></label>
+              <button type="button" class="button primary" id="generate-midday">Generate report</button>
+            </div>
+          </div>
+          <article class="panel report-preview-panel">
+            <div class="panel-header"><h3>Report preview</h3><button type="button" class="button secondary small" id="copy-midday">Copy report</button></div>
+            <pre id="midday-preview">Choose the report time, then generate the midday report.</pre>
+          </article>
+        </section>
+
+        <section class="page" id="page-communications" data-page-panel="communications">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Manager only</p>
+              <h2>Communication log</h2>
+              <p>Document conversations, follow-up, incidents, and resolutions.</p>
+            </div>
+            <button type="button" class="button primary" id="add-communication">+ New entry</button>
+          </div>
+          <article class="panel">
+            <div class="log-filters">
+              <label>Search<input id="communication-search" type="search" placeholder="Search notes, associate, or category"></label>
+              <label>Status<select id="communication-status-filter"><option value="">All statuses</option><option>Open</option><option>Follow-up</option><option>Resolved</option></select></label>
+              <label>Category<select id="communication-category-filter"><option value="">All categories</option><option>Attendance</option><option>Performance</option><option>Customer</option><option>LP</option><option>Recognition</option><option>General</option></select></label>
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Date / time</th><th>Associate</th><th>Manager</th><th>Category</th><th>Notes</th><th>Follow-up</th><th>Status</th></tr></thead><tbody id="communication-rows"></tbody></table>
+            </div>
+          </article>
+        </section>
+
+        <section class="page" id="page-periods" data-page-panel="periods">
+          <div class="section-intro">
+            <div>
+              <p class="eyebrow">Close the loop</p>
+              <h2>End-of-period reports</h2>
+              <p>Summarize results, completed priorities, wins, and remaining follow-up.</p>
+            </div>
+          </div>
+          <div class="dashboard-grid">
+            <article class="panel">
+              <div class="panel-header"><h3>Report settings</h3></div>
+              <div class="fields">
+                <label>Report type<select id="period-report-type"><option>End of Week</option><option>End of Month</option><option>End of Quarter</option><option>End of Fiscal Year</option><option>Custom Range</option></select></label>
+                <div class="fields two"><label>Start date<input id="period-start" type="date"></label><label>End date<input id="period-end" type="date"></label></div>
+                <label>Accomplishments / wins<textarea id="period-wins" rows="4" placeholder="Major work completed during this period"></textarea></label>
+                <label>Manager commentary<textarea id="period-commentary" rows="4" placeholder="Context, lessons, and next steps"></textarea></label>
+                <div class="button-row"><button type="button" class="button primary" id="generate-period">Generate report</button><button type="button" class="button secondary" id="save-snapshot">Save snapshot</button></div>
+              </div>
+            </article>
+            <article class="panel report-preview-panel">
+              <div class="panel-header"><h3>Report preview</h3><button type="button" class="button secondary small" id="copy-period">Copy report</button></div>
+              <pre id="period-preview">Select a report type, then generate the report.</pre>
+            </article>
+          </div>
+          <article class="panel snapshot-panel"><div class="panel-header"><h3>Saved snapshots</h3></div><div id="snapshot-list"></div></article>
         </section>
 
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
