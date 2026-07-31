@@ -1,4 +1,5 @@
-const STORAGE_KEY = "store-operations-demo-v3";
+const STORAGE_KEY = "store-operations-production-v1";
+const LEGACY_STORAGE_KEY = "store-operations-demo-v3";
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const positions = ["MOD", "Register Area", "Shelver", "Truck", "Associate", "Buyback", "Training", "Greeter", "Mythical Being"];
 const roles = ["GM", "ASM", "MOD", "Associate"];
@@ -283,12 +284,16 @@ function migrate(saved) {
   return merged;
 }
 function loadState() {
-  try { const saved = localStorage.getItem(STORAGE_KEY); return saved ? migrate(JSON.parse(saved)) : clone(defaultState); }
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
+    return saved ? migrate(JSON.parse(saved)) : clone(defaultState);
+  }
   catch { return clone(defaultState); }
 }
 function persist(message = "Saved. Dashboard and agenda updated.") {
   snapshotCurrentWeek();
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  window.StoreOpsProduction?.queueSave(clone(state));
   showToast(message);
 }
 function showToast(message) {
@@ -863,6 +868,7 @@ function renderAll() {
     ? "Daily scheduling, results, communications, and reports."
     : "All planning, reporting, and setup tools are visible.";
   renderFiscalControls();
+  document.querySelector("#sidebar-store-name").textContent = state.store.number === "DEMO" ? "Demo Store" : `Store ${state.store.number}`;
   renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
 }
 
@@ -1063,6 +1069,10 @@ document.addEventListener("click", (event) => {
     renderAll();
   }
   if (event.target.closest("#menu-button")) document.body.classList.toggle("nav-open");
+  if (event.target.closest("#account-menu")) window.StoreOpsProduction?.openAccount();
+  if (event.target.closest("#export-backup")) window.StoreOpsProduction?.exportBackup(clone(state));
+  if (event.target.closest("#restore-backup")) document.querySelector("#restore-backup-file").click();
+  if (event.target.closest("#cloud-backup")) window.StoreOpsProduction?.createCloudBackup(clone(state));
   if (event.target.closest("#save-setup")) saveSetup();
   if (event.target.closest("#save-goals")) saveGoals();
   if (event.target.closest("#save-schedule")) saveSchedule();
@@ -1136,6 +1146,24 @@ document.addEventListener("click", (event) => {
   }
 });
 
+document.querySelector("#restore-backup-file").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  try {
+    const restored = JSON.parse(await file.text());
+    const payload = restored.state || restored;
+    if (!payload.store || !Array.isArray(payload.associates) || !Array.isArray(payload.budgets)) throw new Error("Invalid backup");
+    if (!window.confirm(`Restore the backup created ${restored.exportedAt || "on an unknown date"}? This replaces the current dashboard data.`)) return;
+    state = migrate(payload);
+    persist("Backup restored and saved.");
+    renderAll();
+  } catch {
+    showToast("That file is not a valid Store Operations backup.");
+  } finally {
+    event.target.value = "";
+  }
+});
+
 document.addEventListener("input", (event) => {
   if (event.target.matches(".budget-field")) updateBudgetTotalsFromInputs();
   if (event.target.matches(".daily-associate-field")) updateAssociateDailyTotals();
@@ -1191,3 +1219,14 @@ document.querySelector("#operating-date").addEventListener("change", (event) => 
 });
 
 renderAll();
+window.StoreOpsApp = {
+  getState: () => clone(state),
+  replaceState: (nextState, message = "Secure data loaded.") => {
+    state = migrate(nextState);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderAll();
+    showToast(message);
+  },
+  showToast,
+};
+window.StoreOpsProduction?.init(window.StoreOpsApp);
