@@ -7,7 +7,7 @@
     <meta
       name="description"
       content="Retail store daily operations dashboard, schedule, goals, agenda, and nightly report.">
-    <title>2NC Store Operations Demo</title>
+    <title>2NC Store Operations</title>
     <link rel="icon" type="image/svg+xml" href="assets/icon/store-ops-icon.svg">
     <link rel="apple-touch-icon" href="assets/icon/store-ops-icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
@@ -19,7 +19,7 @@
         <div class="brand">
           <span class="brand-mark"><img src="assets/2nc-logo.png" alt="2nd & Charles"></span>
           <div>
-            <strong>Demo Store</strong>
+            <strong id="sidebar-store-name">Store 2102</strong>
             <span>Operations Dashboard</span>
           </div>
         </div>
@@ -69,8 +69,8 @@
         <div class="sidebar-footer">
           <span class="status-dot"></span>
           <div>
-            <strong>Prototype mode</strong>
-            <span>Saved on this device</span>
+            <strong id="sync-status-title">Demo mode</strong>
+            <span id="sync-status-detail">Saved on this device</span>
           </div>
         </div>
       </aside>
@@ -95,13 +95,13 @@
               <span>Operating date</span>
               <input type="date" id="operating-date">
             </label>
-            <button type="button" class="button secondary" id="reset-demo">Reset demo</button>
+            <button type="button" class="button secondary" id="account-menu">Production setup</button>
           </div>
         </header>
 
-        <div class="prototype-note">
-          <strong>Working prototype:</strong> sample information is stored only in this browser.
-          Secure shared access and sign-in come in the production phase.
+        <div class="prototype-note" id="environment-note">
+          <strong>Safe demo mode:</strong> sample information is stored only in this browser.
+          Connect the secure pilot database before entering real store or associate information.
         </div>
 
         <section class="page active" id="page-today" data-page-panel="today">
@@ -228,6 +228,22 @@
                 <label class="toggle"><input id="contests-enabled" type="checkbox"><span></span> Contests active</label>
               </div>
               <div id="contest-setup-rows" class="contest-setup-rows"></div>
+            </article>
+
+            <article class="panel contest-setup-panel">
+              <div class="panel-header">
+                <div>
+                  <h3>Data protection &amp; recovery</h3>
+                  <p>Download a portable backup, restore one, or create a dated cloud recovery point.</p>
+                </div>
+                <div class="button-row">
+                  <button type="button" class="button secondary small" id="export-backup">Export backup</button>
+                  <button type="button" class="button secondary small" id="restore-backup">Restore backup</button>
+                  <button type="button" class="button primary small" id="cloud-backup">Create cloud backup</button>
+                  <input type="file" id="restore-backup-file" accept="application/json,.json" hidden>
+                </div>
+              </div>
+              <p class="data-protection-note" id="last-cloud-backup">Cloud backups become available after secure sync is connected.</p>
             </article>
           </div>
         </section>
@@ -568,6 +584,27 @@
       </main>
     </div>
 
+    <div class="auth-gate" id="auth-gate" hidden>
+      <div class="auth-card">
+        <img src="assets/icon/store-ops-icon-192.png" alt="" class="auth-icon">
+        <p class="eyebrow">Store 2102 production pilot</p>
+        <h1>Welcome back.</h1>
+        <p>Enter your approved email address. We’ll send a secure sign-in link—there is no password to remember.</p>
+        <form id="sign-in-form" class="fields">
+          <label>Email address<input id="sign-in-email" type="email" autocomplete="email" required></label>
+          <button type="submit" class="button primary">Email secure sign-in link</button>
+        </form>
+        <p class="auth-message" id="auth-message"></p>
+      </div>
+    </div>
+
+    <dialog class="production-dialog" id="production-dialog">
+      <form method="dialog" class="dialog-close-row"><button class="remove-button" aria-label="Close">×</button></form>
+      <div id="production-dialog-content"></div>
+    </dialog>
+
+    <script src="config.js"></script>
+    <script src="production.js"></script>
     <script src="app.js"></script>
   </body>
 </html>
