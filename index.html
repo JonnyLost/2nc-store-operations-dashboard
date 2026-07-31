@@ -24,34 +24,34 @@
 
         <nav class="nav" aria-label="Main navigation">
           <button type="button" class="nav-link active" data-page="today">
-            <span>01</span> Today
+            <span>01</span> Today <kbd>⌘1</kbd>
           </button>
           <button type="button" class="nav-link" data-page="setup">
-            <span>02</span> Store Setup
+            <span>02</span> Store Setup <kbd>⌘2</kbd>
           </button>
           <button type="button" class="nav-link" data-page="goals">
-            <span>03</span> Budgets &amp; Goals
+            <span>03</span> Budgets &amp; Goals <kbd>⌘3</kbd>
           </button>
           <button type="button" class="nav-link" data-page="schedule">
-            <span>04</span> Schedule
+            <span>04</span> Schedule <kbd>⌘4</kbd>
           </button>
           <button type="button" class="nav-link" data-page="results">
-            <span>05</span> Daily Results
+            <span>05</span> Daily Results <kbd>⌘5</kbd>
           </button>
           <button type="button" class="nav-link" data-page="agenda">
-            <span>06</span> Print Agenda
+            <span>06</span> Print Agenda <kbd>⌘6</kbd>
           </button>
           <button type="button" class="nav-link" data-page="nightly">
-            <span>07</span> Nightly Report
+            <span>07</span> Nightly Report <kbd>⌘7</kbd>
           </button>
           <button type="button" class="nav-link" data-page="midday">
-            <span>08</span> Midday Report
+            <span>08</span> Midday Report <kbd>⌘8</kbd>
           </button>
           <button type="button" class="nav-link" data-page="communications">
-            <span>09</span> Communication Log
+            <span>09</span> Communication Log <kbd>⌘9</kbd>
           </button>
           <button type="button" class="nav-link" data-page="periods">
-            <span>10</span> End-of Reports
+            <span>10</span> End-of Reports <kbd>⌘0</kbd>
           </button>
         </nav>
 
@@ -176,6 +176,13 @@
                 <label>General manager<input id="gm-name" type="text"></label>
                 <label>Week starts<select id="week-start"><option>Sunday</option><option>Monday</option></select></label>
               </div>
+              <div class="setup-toggle-row">
+                <div>
+                  <strong>Day-to-day payroll tools</strong>
+                  <p>Show payroll budgets, schedule costs, and worked-cost tracking throughout the dashboard. Payroll remains on the Nightly Report when this is off.</p>
+                </div>
+                <label class="toggle"><input id="payroll-tools-enabled" type="checkbox"><span></span> Payroll tools active</label>
+              </div>
             </article>
 
             <article class="panel">
@@ -188,7 +195,7 @@
               </div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th>Hourly pay rate</th><th></th></tr></thead>
+                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th class="payroll-tool">Hourly pay rate</th><th></th></tr></thead>
                   <tbody id="associate-rows"></tbody>
                 </table>
               </div>
@@ -241,9 +248,9 @@
               <div class="panel-header"><h3>Daily sales plan</h3></div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Day</th><th>Date</th><th>Sales budget</th><th>Sales LY</th><th>Buyback goal</th><th>Buyback LY units</th><th>LY ratio</th><th>Payroll budget</th></tr></thead>
+                  <thead><tr><th>Day</th><th>Date</th><th>Sales budget</th><th>Sales LY</th><th>Buyback goal</th><th>Buyback LY units</th><th>LY ratio</th><th class="payroll-tool">Payroll budget</th></tr></thead>
                   <tbody id="budget-rows"></tbody>
-                  <tfoot><tr><th colspan="2">Week total</th><th id="budget-total"></th><th id="ly-total"></th><th id="buyback-goal-total"></th><th id="buyback-ly-total"></th><th id="buyback-ratio-total"></th><th id="payroll-budget-total"></th></tr></tfoot>
+                  <tfoot><tr><th colspan="2">Week total</th><th id="budget-total"></th><th id="ly-total"></th><th id="buyback-goal-total"></th><th id="buyback-ly-total"></th><th id="buyback-ratio-total"></th><th id="payroll-budget-total" class="payroll-tool"></th></tr></tfoot>
                 </table>
               </div>
             </article>
@@ -280,7 +287,7 @@
           <article class="panel weekly-overview-panel">
             <div class="panel-header">
               <div><p class="eyebrow">Monday–Sunday</p><h3>Weekly schedule overview</h3></div>
-              <div id="weekly-payroll-summary" class="payroll-summary"></div>
+              <div id="weekly-payroll-summary" class="payroll-summary payroll-tool"></div>
             </div>
             <div id="week-tabs" class="week-tabs" role="tablist" aria-label="Schedule day"></div>
             <div class="table-wrap"><table class="weekly-overview"><thead id="weekly-overview-head"></thead><tbody id="weekly-overview-body"></tbody><tfoot id="weekly-overview-foot"></tfoot></table></div>
@@ -293,7 +300,7 @@
             </div>
             <div class="shift-header">
               <span>Associate</span><span>Start</span><span>End</span><span>Position</span>
-              <span>Break</span><span>Assignment</span><span>Hours</span><span>Cost</span><span></span>
+              <span>Break</span><span>Assignment</span><span>Hours</span><span class="payroll-tool">Cost</span><span></span>
             </div>
             <div id="shift-rows"></div>
           </article>
@@ -334,15 +341,15 @@
               <div>
                 <p class="eyebrow">Buyback</p><h3>Today’s buying</h3>
                 <div class="fields two">
-                  <label>Retail units<input id="result-retail-units" type="number" min="0"></label>
-                  <label>Shelvable units<input id="result-shelvable-units" type="number" min="0"></label>
-                  <label>Non-retail units<input id="result-nonretail-units" type="number" min="0"></label>
-                  <label>Buyback dollars<input id="result-buyback-dollars" type="number" min="0"></label>
+                  <label>Total items received<input id="result-received-units" type="number" min="0" readonly></label>
+                  <label>No-retail units<input id="result-nonretail-units" type="number" min="0" readonly></label>
+                  <label>Shelvable units<input id="result-shelvable-units" type="number" min="0" readonly></label>
+                  <label>Total used units sold<input id="result-used-units-sold" type="number" min="0"></label>
                 </div>
                 <div class="live-callout" id="buyback-callout"></div>
               </div>
             </article>
-            <article class="panel result-card">
+            <article class="panel result-card payroll-tool">
               <div class="result-icon">L</div>
               <div>
                 <p class="eyebrow">Loyalty</p><h3>Today’s loyalty</h3>
@@ -526,7 +533,13 @@
               </div>
             </article>
             <article class="panel report-preview-panel">
-              <div class="panel-header"><h3>Report preview</h3><button type="button" class="button secondary small" id="copy-period">Copy report</button></div>
+              <div class="panel-header">
+                <h3>Report preview</h3>
+                <div class="button-row">
+                  <button type="button" class="button secondary small" id="copy-period">Copy report</button>
+                  <button type="button" class="button primary small" id="export-period-pdf">Export PDF</button>
+                </div>
+              </div>
               <pre id="period-preview">Select a report type, then generate the report.</pre>
             </article>
           </div>
