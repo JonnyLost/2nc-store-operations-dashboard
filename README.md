@@ -1,11 +1,10 @@
 # 2NC Store Operations Dashboard
 
-A mobile-friendly working prototype for a retail store daily operating workflow.
+A production-pilot dashboard for Store 2102's daily operating workflow.
 
 [Open the live dashboard](https://jonnylost.github.io/2nc-store-operations-dashboard/)
 
-All names, identifiers, dates, budgets, schedules, and results in this public demo are fictional
-sample data. They do not represent an actual store or associate.
+The public app opens safely in demo mode until its protected Supabase connection is configured.
 
 ## Included in this build
 
@@ -23,16 +22,17 @@ sample data. They do not represent an actual store or associate.
 - One-page letter-size landscape daily agenda with official branding
 - Nightly report generator with active-contest results
 - Time-stamped Midday Report for sales, loyalty, and active contests
-- Manager-only Communication Log prototype with search, status, category, follow-up, and history
+- Manager-only Communication Log with search, status, category, follow-up, and history
 - End-of-week, month, quarter, fiscal-year, and custom-range reports with saved snapshots
-- Device-local saving through browser storage
+- Passwordless email login for approved owner/manager accounts
+- Secure multi-device synchronization with offline recovery
+- Portable JSON export/restore and dated cloud backups
 - Installable web-app manifest
 
-## Data and security
+## Production setup
 
-This first build is a prototype. Its data is saved only in the current browser with `localStorage`.
-Do not use it for confidential associate information, employee IDs, LP notes, or sensitive
-communications. Shared production use requires authentication and a secure database.
+Follow [PRODUCTION_SETUP.md](PRODUCTION_SETUP.md). Do not enter real associate or Communication
+Log information while the app still says **Demo mode**.
 
 ## Development
 
@@ -45,4 +45,5 @@ python3 -m http.server 8080
 ## Publishing
 
 The included GitHub Actions workflow deploys the site to GitHub Pages whenever `main` changes.
-The deployed prototype and this public source repository contain fictional sample data only.
+The public source repository contains fictional sample data only. Real pilot data lives in the
+protected database and is never committed to GitHub.
