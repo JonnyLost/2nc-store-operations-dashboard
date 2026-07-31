@@ -183,6 +183,13 @@
                 </div>
                 <label class="toggle"><input id="payroll-tools-enabled" type="checkbox"><span></span> Payroll tools active</label>
               </div>
+              <div class="setup-toggle-row">
+                <div>
+                  <strong>Keyboard shortcuts</strong>
+                  <p>Use Command/Ctrl plus a number to move directly between dashboard tabs. Turn this off to disable both shortcut navigation and the shortcut labels.</p>
+                </div>
+                <label class="toggle"><input id="keyboard-shortcuts-enabled" type="checkbox"><span></span> Keyboard shortcuts active</label>
+              </div>
             </article>
 
             <article class="panel">
@@ -525,7 +532,7 @@
             <article class="panel">
               <div class="panel-header"><h3>Report settings</h3></div>
               <div class="fields">
-                <label>Report type<select id="period-report-type"><option>End of Week</option><option>End of Month</option><option>End of Quarter</option><option>End of Fiscal Year</option><option>Custom Range</option></select></label>
+                <label>Report type<select id="period-report-type"><option>End of Day</option><option>End of Week</option><option>End of Month</option><option>End of Quarter</option><option>End of Fiscal Year</option><option>Custom Range</option></select></label>
                 <div class="fields two"><label>Start date<input id="period-start" type="date"></label><label>End date<input id="period-end" type="date"></label></div>
                 <label>Accomplishments / wins<textarea id="period-wins" rows="4" placeholder="Major work completed during this period"></textarea></label>
                 <label>Manager commentary<textarea id="period-commentary" rows="4" placeholder="Context, lessons, and next steps"></textarea></label>
@@ -540,7 +547,7 @@
                   <button type="button" class="button primary small" id="export-period-pdf">Export PDF</button>
                 </div>
               </div>
-              <pre id="period-preview">Select a report type, then generate the report.</pre>
+              <div id="period-preview" class="period-report-placeholder">Select a report type, then generate the report.</div>
             </article>
           </div>
           <article class="panel snapshot-panel"><div class="panel-header"><h3>Saved snapshots</h3></div><div id="snapshot-list"></div></article>
