@@ -2,6 +2,7 @@ const STORAGE_KEY = "store-operations-demo-v3";
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const positions = ["MOD", "Register Area", "Shelver", "Truck", "Associate", "Buyback", "Training", "Greeter", "Mythical Being"];
 const roles = ["GM", "ASM", "MOD", "Associate"];
+const quickModeHiddenPages = new Set(["setup", "goals", "agenda", "periods"]);
 const pageNames = {
   today: ["Today", "Daily command center"],
   setup: ["Store setup", "One-time foundation"],
@@ -32,6 +33,7 @@ const defaultState = {
   store: { number: "DEMO", name: "Sample Store", gm: "Demo Manager", weekStart: "Sunday" },
   payrollToolsActive: true,
   keyboardShortcutsActive: true,
+  dashboardMode: "full",
   associates: [
     { name: "Demo Manager", id: "SAMPLE-A", role: "GM", payRate: 24.5 },
     { name: "Demo Assistant", id: "SAMPLE-B", role: "ASM", payRate: 20.25 },
@@ -260,6 +262,7 @@ function ensureAssociateDaily() {
 
 function migrate(saved) {
   const merged = { ...clone(defaultState), ...saved };
+  merged.dashboardMode = saved.dashboardMode === "quick" ? "quick" : "full";
   merged.associates = (saved.associates || defaultState.associates).map((a, i) => ({ ...a, payRate: Number(a.payRate ?? defaultState.associates[i]?.payRate ?? 14) }));
   merged.weeklySchedule = saved.weeklySchedule || days.map((_, i) => i === 4 ? clone(saved.schedule || demoShifts) : clone(defaultState.weeklySchedule[i]));
   merged.weeklySchedule = merged.weeklySchedule.map((schedule) => schedule.map((shift) => ({ ...shift, position: normalizedPosition(shift.position) })));
@@ -847,6 +850,18 @@ function renderAll() {
   ensureAssociateDaily();
   document.body.classList.toggle("payroll-tools-off", !state.payrollToolsActive);
   document.body.classList.toggle("shortcuts-off", !state.keyboardShortcutsActive);
+  document.body.classList.toggle("quick-mode", state.dashboardMode === "quick");
+  document.querySelectorAll(".nav-link").forEach((button) => {
+    button.classList.toggle("quick-mode-hidden", state.dashboardMode === "quick" && quickModeHiddenPages.has(button.dataset.page));
+  });
+  document.querySelectorAll("[data-dashboard-mode]").forEach((button) => {
+    const active = button.dataset.dashboardMode === state.dashboardMode;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  document.querySelector("#mode-description").textContent = state.dashboardMode === "quick"
+    ? "Daily scheduling, results, communications, and reports."
+    : "All planning, reporting, and setup tools are visible.";
   renderFiscalControls();
   renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
 }
@@ -868,6 +883,10 @@ function updateBudgetTotalsFromInputs() {
 }
 
 function goTo(page) {
+  if (state.dashboardMode === "quick" && quickModeHiddenPages.has(page)) {
+    showToast("That tool is available in Full mode.");
+    return;
+  }
   document.querySelectorAll("[data-page-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.pagePanel === page));
   document.querySelectorAll(".nav-link").forEach((button) => button.classList.toggle("active", button.dataset.page === page));
   document.querySelector("#page-title").textContent = pageNames[page][0];
@@ -1032,6 +1051,17 @@ function saveCommunicationRows() {
 document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-page]"); const go = event.target.closest("[data-go]");
   if (nav) goTo(nav.dataset.page); if (go) goTo(go.dataset.go);
+  const modeButton = event.target.closest("[data-dashboard-mode]");
+  if (modeButton) {
+    state.dashboardMode = modeButton.dataset.dashboardMode;
+    if (state.dashboardMode === "quick" && document.querySelector("[data-page-panel].active")?.dataset.pagePanel && quickModeHiddenPages.has(document.querySelector("[data-page-panel].active").dataset.pagePanel)) {
+      document.querySelectorAll("[data-page-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.pagePanel === "today"));
+      document.querySelector("#page-title").textContent = pageNames.today[0];
+      document.querySelector("#page-eyebrow").textContent = pageNames.today[1];
+    }
+    persist(`${state.dashboardMode === "quick" ? "Quick" : "Full"} mode active.`);
+    renderAll();
+  }
   if (event.target.closest("#menu-button")) document.body.classList.toggle("nav-open");
   if (event.target.closest("#save-setup")) saveSetup();
   if (event.target.closest("#save-goals")) saveGoals();
