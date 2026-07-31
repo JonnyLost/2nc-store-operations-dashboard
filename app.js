@@ -1,6 +1,6 @@
 const STORAGE_KEY = "store-operations-demo-v3";
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-const positions = ["MOD", "Register", "Buy Counter", "Books", "Media", "Comics", "Floor", "Projects"];
+const positions = ["MOD", "Register Area", "Shelver", "Truck", "Associate", "Buyback", "Training", "Greeter", "Mythical Being"];
 const roles = ["GM", "ASM", "MOD", "Associate"];
 const pageNames = {
   today: ["Today", "Daily command center"],
@@ -17,11 +17,11 @@ const pageNames = {
 
 const demoShifts = [
   { associate: "Demo Manager", start: "08:00", end: "17:00", position: "MOD", breakMinutes: 60, breakAt: "1:00", assignment: "Open / floor leadership" },
-  { associate: "Demo Assistant", start: "09:00", end: "18:00", position: "Buy Counter", breakMinutes: 30, breakAt: "1:30", assignment: "Buyback & training" },
+  { associate: "Demo Assistant", start: "09:00", end: "18:00", position: "Buyback", breakMinutes: 30, breakAt: "1:30", assignment: "Buyback & training" },
   { associate: "Demo Lead", start: "11:00", end: "20:00", position: "MOD", breakMinutes: 60, breakAt: "3:00", assignment: "Closing MOD / recovery" },
-  { associate: "Associate A", start: "10:00", end: "18:30", position: "Books", breakMinutes: 30, breakAt: "2:00", assignment: "Fiction reset / Book Drive" },
-  { associate: "Associate B", start: "12:00", end: "20:00", position: "Media", breakMinutes: 30, breakAt: "4:00", assignment: "Media go-backs / Mystery Box" },
-  { associate: "Associate C", start: "16:00", end: "20:00", position: "Register", breakMinutes: 0, breakAt: "—", assignment: "Loyalty / closing recovery" },
+  { associate: "Associate A", start: "10:00", end: "18:30", position: "Shelver", breakMinutes: 30, breakAt: "2:00", assignment: "Fiction reset / Book Drive" },
+  { associate: "Associate B", start: "12:00", end: "20:00", position: "Associate", breakMinutes: 30, breakAt: "4:00", assignment: "Media go-backs / Mystery Box" },
+  { associate: "Associate C", start: "16:00", end: "20:00", position: "Register Area", breakMinutes: 0, breakAt: "—", assignment: "Loyalty / closing recovery" },
 ];
 
 const defaultState = {
@@ -31,6 +31,7 @@ const defaultState = {
   selectedScheduleDay: 4,
   store: { number: "DEMO", name: "Sample Store", gm: "Demo Manager", weekStart: "Sunday" },
   payrollToolsActive: true,
+  keyboardShortcutsActive: true,
   associates: [
     { name: "Demo Manager", id: "SAMPLE-A", role: "GM", payRate: 24.5 },
     { name: "Demo Assistant", id: "SAMPLE-B", role: "ASM", payRate: 20.25 },
@@ -165,6 +166,14 @@ function normalizeTimeInput(value) {
 function initials(name) { return String(name).split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase(); }
 function selected(value, match) { return value === match ? "selected" : ""; }
 function checked(value) { return value ? "checked" : ""; }
+function normalizedPosition(value) {
+  const replacements = {
+    Register: "Register Area", "Buy Counter": "Buyback", Books: "Shelver",
+    Media: "Associate", Comics: "Associate", Floor: "Associate", Projects: "Associate",
+  };
+  const normalized = replacements[value] || value;
+  return positions.includes(normalized) ? normalized : "Associate";
+}
 function safeDivide(a, b) { return Number(b) ? Number(a) / Number(b) : NaN; }
 function varianceClass(value) { return value >= 0 ? "positive" : "negative"; }
 function varianceText(value) { return `${value >= 0 ? "+" : "−"}${money(Math.abs(value))}`; }
@@ -253,6 +262,7 @@ function migrate(saved) {
   const merged = { ...clone(defaultState), ...saved };
   merged.associates = (saved.associates || defaultState.associates).map((a, i) => ({ ...a, payRate: Number(a.payRate ?? defaultState.associates[i]?.payRate ?? 14) }));
   merged.weeklySchedule = saved.weeklySchedule || days.map((_, i) => i === 4 ? clone(saved.schedule || demoShifts) : clone(defaultState.weeklySchedule[i]));
+  merged.weeklySchedule = merged.weeklySchedule.map((schedule) => schedule.map((shift) => ({ ...shift, position: normalizedPosition(shift.position) })));
   merged.results = { ...clone(defaultState.results), ...(saved.results || {}) };
   merged.results.receivedUnits = Number(saved.results?.receivedUnits ?? saved.results?.retailUnits ?? merged.results.receivedUnits);
   merged.results.usedUnitsSold = Number(saved.results?.usedUnitsSold ?? saved.results?.retailUnits ?? merged.results.usedUnitsSold);
@@ -411,6 +421,7 @@ function renderSetup() {
   document.querySelector("#gm-name").value = state.store.gm;
   document.querySelector("#week-start").value = state.store.weekStart;
   document.querySelector("#payroll-tools-enabled").checked = state.payrollToolsActive;
+  document.querySelector("#keyboard-shortcuts-enabled").checked = state.keyboardShortcutsActive;
   document.querySelector("#associate-rows").innerHTML = state.associates.map((associate, index) => `
     <tr data-associate-index="${index}">
       <td><input class="inline-input associate-field" data-field="name" value="${esc(associate.name)}" aria-label="Associate name"></td>
@@ -500,7 +511,7 @@ function renderScheduleWarnings() {
   const warnings = [];
   const managerCoverage = schedule.some((shift) => ["GM", "ASM", "MOD"].includes(associateByName(shift.associate)?.role));
   if (!managerCoverage) warnings.push("No MOD coverage");
-  const registerCoverage = schedule.some((shift) => shift.position === "Register");
+  const registerCoverage = schedule.some((shift) => shift.position === "Register Area");
   if (!registerCoverage) warnings.push("No register assigned");
   state.associates.forEach((associate) => {
     const weekHours = state.weeklySchedule.flat().filter((s) => s.associate === associate.name).reduce((sum, shift) => sum + shiftHours(shift), 0);
@@ -677,8 +688,9 @@ function renderSnapshots() {
   document.querySelector("#snapshot-list").innerHTML = state.reportSnapshots.length
     ? state.reportSnapshots.slice().reverse().map((snapshot) => `<article class="snapshot-item"><div><strong>${esc(snapshot.title)}</strong><span>${esc(snapshot.created)}</span></div><button type="button" class="text-button load-snapshot" data-snapshot-id="${snapshot.id}">View →</button></article>`).join("")
     : `<p class="empty-state">No saved period snapshots yet.</p>`;
-  document.querySelector("#period-start").value ||= state.budgets[0].date;
-  document.querySelector("#period-end").value ||= state.budgets[6].date;
+  const isEndOfDay = document.querySelector("#period-report-type").value === "End of Day";
+  document.querySelector("#period-start").value ||= isEndOfDay ? state.operatingDate : state.budgets[0].date;
+  document.querySelector("#period-end").value ||= isEndOfDay ? state.operatingDate : state.budgets[6].date;
 }
 
 function reportContestLines() {
@@ -695,6 +707,13 @@ function periodWeekEntries(start, end) {
 }
 
 function periodAssociateLines(start, end) {
+  return periodAssociateResults(start, end).map(({ name, received, nonRetail, shelvable, contests }) => {
+    const contestText = Object.entries(contests).map(([contest, result]) => `${contest} ${number(result, 2)}`).join(" · ");
+    return `• ${name}: ${number(received)} received · ${number(nonRetail)} no-retail · ${number(shelvable)} shelvable${contestText ? ` · ${contestText}` : ""}`;
+  });
+}
+
+function periodAssociateResults(start, end) {
   const totals = Object.fromEntries(state.associates.map((associate) => [associate.name, {
     received: 0, nonRetail: 0, contests: {},
   }]));
@@ -714,11 +733,7 @@ function periodAssociateLines(start, end) {
   return Object.entries(totals)
     .filter(([, value]) => value.received || value.nonRetail || Object.keys(value.contests).length)
     .sort((a, b) => b[1].received - a[1].received)
-    .map(([name, value]) => {
-      const shelvable = Math.max(0, value.received - value.nonRetail);
-      const contests = Object.entries(value.contests).map(([contest, result]) => `${contest} ${number(result, 2)}`).join(" · ");
-      return `• ${name}: ${number(value.received)} received · ${number(value.nonRetail)} no-retail · ${number(shelvable)} shelvable${contests ? ` · ${contests}` : ""}`;
-    });
+    .map(([name, value]) => ({ name, ...value, shelvable: Math.max(0, value.received - value.nonRetail) }));
 }
 
 function generateMiddayReport() {
@@ -754,8 +769,64 @@ function generatePeriodReport() {
     "OUTSTANDING FOLLOW-UP", state.communications.filter((entry) => entry.status !== "Resolved").map((entry) => `• ${entry.notes}`).join("\n") || "None.", "",
     "MANAGER COMMENTARY", document.querySelector("#period-commentary").value.trim() || "None noted.",
   ].join("\n");
-  document.querySelector("#period-preview").textContent = report;
+  const associates = periodAssociateResults(start, end);
+  const contests = activeContests().map((contest) => {
+    const total = contestTotals(contest);
+    return {
+      name: contest.name,
+      result: formatContestResult(contest, total.result),
+      goal: formatContestResult(contest, contest.goal),
+      progress: percent(safeDivide(total.result, contest.goal) * 100),
+    };
+  });
+  renderPeriodReport({ type, start, end, report, calc, associates, contests });
   return { type, report };
+}
+
+function renderPeriodReport({ type, start, end, report, calc, associates, contests }) {
+  const followups = state.communications.filter((entry) => entry.status !== "Resolved");
+  const wins = document.querySelector("#period-wins").value.trim() || state.nightly.wins || "None noted.";
+  const commentary = document.querySelector("#period-commentary").value.trim() || "None noted.";
+  const dateRange = start === end
+    ? dateText(start, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    : `${dateText(start, { month: "long", day: "numeric", year: "numeric" })} – ${dateText(end, { month: "long", day: "numeric", year: "numeric" })}`;
+  const contestMarkup = contests.length ? `
+    <section class="period-section">
+      <h3>Contest Progress</h3>
+      <div class="period-contest-grid">${contests.map((contest) => `
+        <div><span>${esc(contest.name)}</span><strong>${esc(contest.result)} / ${esc(contest.goal)}</strong><small>${esc(contest.progress)} complete</small></div>`).join("")}
+      </div>
+    </section>` : "";
+  const associateMarkup = associates.length ? `
+    <div class="period-table-wrap"><table class="period-table"><thead><tr><th>Associate</th><th>Received</th><th>No-retail</th><th>Shelvable</th><th>Contest results</th></tr></thead>
+    <tbody>${associates.map((associate) => `<tr><td><strong>${esc(associate.name)}</strong></td><td>${number(associate.received)}</td><td>${number(associate.nonRetail)}</td><td>${number(associate.shelvable)}</td><td>${esc(Object.entries(associate.contests).map(([name, result]) => `${name}: ${number(result, 2)}`).join(" · ") || "—")}</td></tr>`).join("")}</tbody></table></div>`
+    : `<p class="period-empty">No associate results recorded for this period.</p>`;
+  const preview = document.querySelector("#period-preview");
+  preview.dataset.plainText = report;
+  preview.className = "period-report-document";
+  preview.innerHTML = `
+    <header class="period-report-header">
+      <div class="period-report-logo"><img src="assets/2nc-logo.png" alt="2nd & Charles"></div>
+      <div><p>STORE ${esc(state.store.number)} · ${esc(state.store.name)}</p><h2>${esc(type)}</h2><span>${esc(dateRange)}</span></div>
+      <div class="period-report-badge">FY${String(state.fiscalYear).slice(-2)}<strong>W${state.fiscalWeek}</strong></div>
+    </header>
+    <section class="period-section">
+      <h3>Performance Overview</h3>
+      <div class="period-metric-grid">
+        <div><span>Sales</span><strong>${money(calc.wtdSales)}</strong><small>${varianceText(calc.wtdVariance)} to budget</small></div>
+        <div><span>Buyback Ratio</span><strong>${ratio(calc.buybackRatio)}</strong><small>${number(calc.received)} units received</small></div>
+        <div><span>Loyalty Opportunity</span><strong>${percent(calc.opportunityLoyalty)}</strong><small>${percent(calc.transactionLoyalty)} transaction</small></div>
+        <div><span>Payroll</span><strong>${money(calc.actualCost, 2)}</strong><small>${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance</small></div>
+      </div>
+    </section>
+    ${contestMarkup}
+    <section class="period-section"><h3>Associate Results</h3>${associateMarkup}</section>
+    <div class="period-notes-grid">
+      <section class="period-section"><h3>Accomplishments &amp; Wins</h3><p>${esc(wins)}</p></section>
+      <section class="period-section"><h3>Outstanding Follow-up</h3>${followups.length ? `<ul>${followups.map((entry) => `<li>${esc(entry.notes)}</li>`).join("")}</ul>` : "<p>None.</p>"}</section>
+    </div>
+    <section class="period-section period-commentary"><h3>Manager Commentary</h3><p>${esc(commentary)}</p></section>
+    <footer class="period-report-footer"><span>Generated ${esc(new Date().toLocaleString())}</span><strong>2NC Store Operations Dashboard</strong></footer>`;
 }
 
 function exportPeriodPdf() {
@@ -775,6 +846,7 @@ function exportPeriodPdf() {
 function renderAll() {
   ensureAssociateDaily();
   document.body.classList.toggle("payroll-tools-off", !state.payrollToolsActive);
+  document.body.classList.toggle("shortcuts-off", !state.keyboardShortcutsActive);
   renderFiscalControls();
   renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
 }
@@ -808,6 +880,7 @@ function saveSetup() {
   const oldNames = state.associates.map((a) => a.name);
   state.store = { number: document.querySelector("#store-number").value.trim(), name: document.querySelector("#store-name").value.trim(), gm: document.querySelector("#gm-name").value.trim(), weekStart: document.querySelector("#week-start").value };
   state.payrollToolsActive = document.querySelector("#payroll-tools-enabled").checked;
+  state.keyboardShortcutsActive = document.querySelector("#keyboard-shortcuts-enabled").checked;
   state.associates = [...document.querySelectorAll("[data-associate-index]")].map((row) => ({
     name: row.querySelector('[data-field="name"]').value.trim(), id: row.querySelector('[data-field="id"]').value.trim(),
     role: row.querySelector('[data-field="role"]').value, payRate: Number(row.querySelector('[data-field="payRate"]').value || 0),
@@ -825,7 +898,7 @@ function saveSetup() {
     const idx = oldNames.indexOf(shift.associate);
     if (idx >= 0 && state.associates[idx]) shift.associate = state.associates[idx].name;
   });
-  persist("Store, associates, pay rates, and contest controls saved."); renderAll();
+  persist("Store, associates, pay rates, shortcuts, and contest controls saved."); renderAll();
 }
 
 function saveGoals() {
@@ -984,13 +1057,27 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("#save-snapshot")) {
     const generated = generatePeriodReport();
-    const snapshot = { id: Date.now(), title: `${generated.type} · FY${String(state.fiscalYear).slice(-2)} W${state.fiscalWeek}`, created: new Date().toLocaleString(), report: generated.report };
+    const preview = document.querySelector("#period-preview");
+    const snapshot = {
+      id: Date.now(), title: `${generated.type} · FY${String(state.fiscalYear).slice(-2)} W${state.fiscalWeek}`,
+      created: new Date().toLocaleString(), report: generated.report, html: preview.innerHTML,
+    };
     state.reportSnapshots.push(snapshot); persist("Permanent report snapshot saved."); renderSnapshots();
   }
   const loadSnapshot = event.target.closest(".load-snapshot");
   if (loadSnapshot) {
     const snapshot = state.reportSnapshots.find((item) => String(item.id) === loadSnapshot.dataset.snapshotId);
-    if (snapshot) document.querySelector("#period-preview").textContent = snapshot.report;
+    if (snapshot) {
+      const preview = document.querySelector("#period-preview");
+      preview.dataset.plainText = snapshot.report;
+      if (snapshot.html) {
+        preview.className = "period-report-document";
+        preview.innerHTML = snapshot.html;
+      } else {
+        preview.className = "period-report-placeholder";
+        preview.textContent = snapshot.report;
+      }
+    }
   }
   const dayTab = event.target.closest("[data-schedule-day]");
   if (dayTab) { collectSchedule(); state.selectedScheduleDay = Number(dayTab.dataset.scheduleDay); renderSchedule(); }
@@ -998,7 +1085,7 @@ document.addEventListener("click", (event) => {
   const removeAssociate = event.target.closest(".remove-associate");
   if (removeAssociate) { state.associates.splice(Number(removeAssociate.closest("[data-associate-index]").dataset.associateIndex), 1); renderSetup(); }
   if (event.target.closest("#add-shift")) {
-    collectSchedule(); state.weeklySchedule[state.selectedScheduleDay].push({ associate: state.associates[0]?.name || "Associate", start: "09:00", end: "17:00", position: "Floor", breakAt: "1:00", breakMinutes: 30, assignment: "" }); renderSchedule();
+    collectSchedule(); state.weeklySchedule[state.selectedScheduleDay].push({ associate: state.associates[0]?.name || "Associate", start: "09:00", end: "17:00", position: "Associate", breakAt: "1:00", breakMinutes: 30, assignment: "" }); renderSchedule();
   }
   const removeShift = event.target.closest(".remove-shift");
   if (removeShift) { collectSchedule(); state.weeklySchedule[state.selectedScheduleDay].splice(Number(removeShift.closest("[data-shift-index]").dataset.shiftIndex), 1); renderSchedule(); }
@@ -1010,7 +1097,10 @@ document.addEventListener("click", (event) => {
   if (event.target.closest("#copy-week")) { state.weeklySchedule = clone(defaultState.weeklySchedule); renderSchedule(); showToast("Demo week copied. Save when ready."); }
   if (event.target.closest("#copy-report")) navigator.clipboard.writeText(document.querySelector("#report-preview").textContent).then(() => showToast("Nightly report copied.")).catch(() => showToast("Copy was blocked. Select the report text to copy it."));
   if (event.target.closest("#copy-midday")) navigator.clipboard.writeText(document.querySelector("#midday-preview").textContent).then(() => showToast("Midday report copied."));
-  if (event.target.closest("#copy-period")) navigator.clipboard.writeText(document.querySelector("#period-preview").textContent).then(() => showToast("Period report copied."));
+  if (event.target.closest("#copy-period")) {
+    const preview = document.querySelector("#period-preview");
+    navigator.clipboard.writeText(preview.dataset.plainText || preview.textContent).then(() => showToast("Period report copied."));
+  }
   if (event.target.closest("#reset-demo") && window.confirm("Reset all prototype entries on this device to the original sample data?")) {
     state = clone(defaultState); localStorage.removeItem(STORAGE_KEY); renderAll(); goTo("today"); showToast("Prototype reset.");
   }
@@ -1046,11 +1136,17 @@ document.addEventListener("focusout", (event) => {
   row.querySelectorAll("output")[1].textContent = money(shiftCost(shift), 2);
 });
 document.addEventListener("keydown", (event) => {
+  if (!state.keyboardShortcutsActive) return;
   if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
   const shortcutPages = ["periods", "today", "setup", "goals", "schedule", "results", "agenda", "nightly", "midday", "communications"];
   if (!/^[0-9]$/.test(event.key)) return;
   event.preventDefault();
   goTo(shortcutPages[Number(event.key)]);
+});
+document.querySelector("#period-report-type").addEventListener("change", (event) => {
+  if (event.target.value !== "End of Day") return;
+  document.querySelector("#period-start").value = state.operatingDate;
+  document.querySelector("#period-end").value = state.operatingDate;
 });
 document.querySelector("#contests-enabled").addEventListener("change", (event) => document.querySelector("#contest-setup-rows").classList.toggle("disabled-section", !event.target.checked));
 document.querySelector("#fiscal-year").addEventListener("change", (event) => {
