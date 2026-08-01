@@ -1,55 +1,50 @@
-# Store 2102 Production Pilot Setup
+# Store 2102 Secure Setup
 
-The production pilot uses Supabase for passwordless email login, synchronized data, and dated cloud backups. The dashboard remains on GitHub Pages. Only users explicitly added to Store 2102 can read or change its data.
+This is a one-time setup. After it is finished, managers and their individual permissions are handled inside the dashboard—no additional database work is needed.
 
-## One-time setup
+## What Jon does once
 
-1. Create a project at [Supabase](https://supabase.com/dashboard). Use a strong database password and keep it in your password manager.
-2. Open **SQL Editor**, create a new query, paste the complete contents of `supabase-schema.sql`, and run it.
-3. Open **Authentication → URL Configuration**.
+1. Create a project at [Supabase](https://supabase.com/dashboard). Save the database password somewhere safe.
+2. Open **SQL Editor**, choose **New query**, and paste the complete contents of `supabase-schema.sql`.
+3. At the very bottom, replace `YOUR_EMAIL_HERE` with your own email address, then choose **Run**.
+4. Open **Authentication → URL Configuration**.
    - Set **Site URL** to `https://jonnylost.github.io/2nc-store-operations-dashboard/`.
-   - Add the same address to **Redirect URLs**.
-4. Open **Authentication → Users**, choose **Add user → Send invitation**, and invite your email address.
-5. Return to **SQL Editor** and run the final membership statement shown at the bottom of `supabase-schema.sql`, replacing `YOUR_EMAIL_HERE` with the invited email.
-6. Open **Project Settings → API** and copy:
+   - Add that same address under **Redirect URLs**.
+5. Open **Project Settings → API** and copy the:
    - Project URL
    - Publishable/anon public key
-7. Open the dashboard, select **Production setup**, paste those two public values, confirm Store `2102`, and save.
-8. Enter your email on the sign-in screen and open the secure link that arrives. The first successful sign-in copies the current device’s dashboard state into the protected database.
+6. Open the dashboard, choose **Production setup**, paste those two public values, confirm Store `2102`, and save.
+7. Enter the same owner email address and request a secure sign-in link.
 
-The public anon key is designed for browser use. Security comes from the Row Level Security policies installed by `supabase-schema.sql`. Never paste the Supabase `service_role` or secret key into the dashboard or repository.
+The public anon key is intended for browser use. Never paste a Supabase secret key or `service_role` key into the dashboard.
 
-## Add another manager
+## Add and manage managers
 
-1. In Supabase, open **Authentication → Users → Add user → Send invitation**.
-2. In **SQL Editor**, run:
+Once signed in as the owner:
 
-```sql
-insert into public.store_members (store_id, user_id, role)
-select '2102', id, 'manager'
-from auth.users
-where lower(email) = lower('MANAGER_EMAIL_HERE');
-```
+1. Choose **Account**.
+2. Under **Manager access**, enter the manager’s email.
+3. Turn **Payroll** and **Communication Log** on or off for that person.
+4. Choose **Add or update manager**.
+5. The manager can then open the normal dashboard link, enter that exact email address, and request their sign-in link.
 
-The invited manager can then use **Account** in the dashboard and sign in with the approved email address. This v1.0 pilot intentionally allows only owner/manager accounts because the synchronized record includes pay rates and the manager Communication Log.
+You can return to **Account** at any time to change a manager’s permissions or remove their access. Each person’s permissions are independent. Owners always retain access to every area.
 
-## Remove access
+## How sensitive information is protected
 
-Run this in **SQL Editor**, then optionally delete the person under **Authentication → Users**:
+- General store operations data is available only to approved Store 2102 accounts.
+- Payroll is stored separately and is returned only to an owner or manager with Payroll permission.
+- Communication Log entries are stored separately and are returned only to an owner or manager with Communication Log permission.
+- Hiding a tab is not the security boundary; the database also blocks unauthorized requests.
+- Saved end-of-period snapshots and complete cloud backups remain owner-only because they can contain both kinds of sensitive information.
 
-```sql
-delete from public.store_members
-where store_id = '2102'
-  and user_id = (select id from auth.users where lower(email) = lower('FORMER_USER_EMAIL'));
-```
+## Phones, iPads, and store computers
 
-Removing the membership blocks dashboard data immediately, even if the user still has an active sign-in link.
+Every approved person uses the same dashboard address and their own email sign-in link. Once the public project connection is placed in `config.js`, nobody needs to paste setup values on each device.
 
 ## Backups and recovery
 
-- **Export backup** downloads a complete dated JSON copy you control.
-- **Create cloud backup** saves a dated recovery point in the protected database.
-- **Restore backup** validates a downloaded JSON backup before replacing the current data and synchronizing it.
-- The browser also keeps a recovery cache so a brief internet outage does not erase current work.
-
-For the first two weeks of Q3, export a JSON backup at the end of each week in addition to the cloud backups.
+- **Export backup** downloads the data visible to the signed-in account.
+- **Create cloud backup** is owner-only and saves a complete dated recovery point.
+- The browser also keeps a temporary recovery copy so a brief internet outage does not erase current work.
+- During the first two weeks of Q3, the owner should export a JSON backup at the end of each week.
