@@ -25,6 +25,8 @@ The public app opens safely in demo mode until its protected Supabase connection
 - Manager-only Communication Log with search, status, category, follow-up, and history
 - End-of-week, month, quarter, fiscal-year, and custom-range reports with saved snapshots
 - Passwordless email login for approved owner/manager accounts
+- Owner-managed, individual Payroll and Communication Log permissions
+- Database-enforced separation of general, payroll, and communication data
 - Secure multi-device synchronization with offline recovery
 - Portable JSON export/restore and dated cloud backups
 - Installable web-app manifest
