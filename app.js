@@ -4,6 +4,7 @@ const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", 
 const positions = ["MOD", "Register Area", "Shelver", "Truck", "Associate", "Buyback", "Training", "Greeter", "Mythical Being"];
 const roles = ["GM", "ASM", "MOD", "Associate"];
 const quickModeHiddenPages = new Set(["setup", "goals", "agenda", "periods"]);
+let access = { role: "demo", canViewPayroll: true, canViewCommunications: true };
 const pageNames = {
   today: ["Today", "Daily command center"],
   setup: ["Store setup", "One-time foundation"],
@@ -391,7 +392,7 @@ function renderToday() {
     { label: "WTD sales", value: money(calc.wtdSales), meta: `${varianceText(calc.wtdVariance)} to budget`, detail: `${varianceText(calc.lyVariance)} to LY`, tone: varianceClass(calc.wtdVariance), highlight: true },
     { label: "Buyback ratio", value: ratio(calc.buybackRatio), meta: `Goal ${ratio(state.goals.buybackRatio)}`, detail: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "On goal" : "Below goal", tone: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "positive" : "negative" },
     { label: "Loyalty Opportunity", value: percent(calc.opportunityLoyalty), meta: `Goal ${percent(state.goals.loyalty)}`, detail: "Sign-ups ÷ blanks", tone: calc.opportunityLoyalty >= state.goals.loyalty ? "positive" : "negative" },
-    ...(state.payrollToolsActive ? [{ label: "Payroll cost", value: money(calc.actualCost), meta: `Budget ${money(calc.budget.payrollBudget)}`, detail: `${money(Math.abs(calc.budget.payrollBudget - calc.actualCost))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over"}`, tone: calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative" }] : []),
+    ...(state.payrollToolsActive && access.canViewPayroll ? [{ label: "Payroll cost", value: money(calc.actualCost), meta: `Budget ${money(calc.budget.payrollBudget)}`, detail: `${money(Math.abs(calc.budget.payrollBudget - calc.actualCost))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over"}`, tone: calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative" }] : []),
     ...contests.slice(0, 2).map((contest) => {
       const total = contestTotals(contest);
       return { label: contest.name, value: formatContestResult(contest, total.result), meta: `Goal ${formatContestResult(contest, contest.goal)}`, detail: `${percent(safeDivide(total.result, contest.goal) * 100)} complete`, tone: "neutral" };
@@ -770,11 +771,11 @@ function generatePeriodReport() {
     `Sales: ${money(calc.wtdSales)} (${varianceText(calc.wtdVariance)} to budget; ${varianceText(calc.lyVariance)} to LY)`,
     `Buyback: ${number(calc.received)} received · ${number(calc.nonRetail)} no-retail · ${number(calc.shelvable)} shelvable · ${number(calc.usedUnitsSold)} used units sold · ratio ${ratio(calc.buybackRatio)}`,
     `Loyalty: ${percent(calc.opportunityLoyalty)} opportunity · ${percent(calc.transactionLoyalty)} transaction`,
-    `Payroll: ${money(calc.actualCost, 2)} actual · ${money(calc.scheduledCost, 2)} scheduled · ${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance`,
+    ...(access.canViewPayroll ? [`Payroll: ${money(calc.actualCost, 2)} actual · ${money(calc.scheduledCost, 2)} scheduled · ${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance`] : []),
     ...(reportContestLines().length ? ["", "CONTESTS", ...reportContestLines()] : []), "",
     "ASSOCIATE RESULTS", ...(periodAssociateLines(start, end).length ? periodAssociateLines(start, end) : ["No associate results recorded for this period."]), "",
     "ACCOMPLISHMENTS / WINS", document.querySelector("#period-wins").value.trim() || state.nightly.wins || "None noted.", "",
-    "OUTSTANDING FOLLOW-UP", state.communications.filter((entry) => entry.status !== "Resolved").map((entry) => `• ${entry.notes}`).join("\n") || "None.", "",
+    ...(access.canViewCommunications ? ["OUTSTANDING FOLLOW-UP", state.communications.filter((entry) => entry.status !== "Resolved").map((entry) => `• ${entry.notes}`).join("\n") || "None.", ""] : []),
     "MANAGER COMMENTARY", document.querySelector("#period-commentary").value.trim() || "None noted.",
   ].join("\n");
   const associates = periodAssociateResults(start, end);
@@ -792,7 +793,7 @@ function generatePeriodReport() {
 }
 
 function renderPeriodReport({ type, start, end, report, calc, associates, contests }) {
-  const followups = state.communications.filter((entry) => entry.status !== "Resolved");
+  const followups = access.canViewCommunications ? state.communications.filter((entry) => entry.status !== "Resolved") : [];
   const wins = document.querySelector("#period-wins").value.trim() || state.nightly.wins || "None noted.";
   const commentary = document.querySelector("#period-commentary").value.trim() || "None noted.";
   const dateRange = start === end
@@ -824,14 +825,14 @@ function renderPeriodReport({ type, start, end, report, calc, associates, contes
         <div><span>Sales</span><strong>${money(calc.wtdSales)}</strong><small>${varianceText(calc.wtdVariance)} to budget</small></div>
         <div><span>Buyback Ratio</span><strong>${ratio(calc.buybackRatio)}</strong><small>${number(calc.received)} units received</small></div>
         <div><span>Loyalty Opportunity</span><strong>${percent(calc.opportunityLoyalty)}</strong><small>${percent(calc.transactionLoyalty)} transaction</small></div>
-        <div><span>Payroll</span><strong>${money(calc.actualCost, 2)}</strong><small>${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance</small></div>
+        ${access.canViewPayroll ? `<div><span>Payroll</span><strong>${money(calc.actualCost, 2)}</strong><small>${money(calc.budget.payrollBudget - calc.actualCost, 2)} variance</small></div>` : ""}
       </div>
     </section>
     ${contestMarkup}
     <section class="period-section"><h3>Associate Results</h3>${associateMarkup}</section>
     <div class="period-notes-grid">
       <section class="period-section"><h3>Accomplishments &amp; Wins</h3><p>${esc(wins)}</p></section>
-      <section class="period-section"><h3>Outstanding Follow-up</h3>${followups.length ? `<ul>${followups.map((entry) => `<li>${esc(entry.notes)}</li>`).join("")}</ul>` : "<p>None.</p>"}</section>
+      ${access.canViewCommunications ? `<section class="period-section"><h3>Outstanding Follow-up</h3>${followups.length ? `<ul>${followups.map((entry) => `<li>${esc(entry.notes)}</li>`).join("")}</ul>` : "<p>None.</p>"}</section>` : ""}
     </div>
     <section class="period-section period-commentary"><h3>Manager Commentary</h3><p>${esc(commentary)}</p></section>
     <footer class="period-report-footer"><span>Generated ${esc(new Date().toLocaleString())}</span><strong>2NC Store Operations Dashboard</strong></footer>`;
@@ -853,11 +854,17 @@ function exportPeriodPdf() {
 
 function renderAll() {
   ensureAssociateDaily();
-  document.body.classList.toggle("payroll-tools-off", !state.payrollToolsActive);
+  document.body.classList.toggle("payroll-tools-off", !state.payrollToolsActive || !access.canViewPayroll);
+  document.body.classList.toggle("no-payroll-access", !access.canViewPayroll);
+  document.body.classList.toggle("no-communications-access", !access.canViewCommunications);
+  document.body.classList.toggle("owner-access", access.role === "owner" || access.role === "demo");
   document.body.classList.toggle("shortcuts-off", !state.keyboardShortcutsActive);
   document.body.classList.toggle("quick-mode", state.dashboardMode === "quick");
   document.querySelectorAll(".nav-link").forEach((button) => {
-    button.classList.toggle("quick-mode-hidden", state.dashboardMode === "quick" && quickModeHiddenPages.has(button.dataset.page));
+    const modeHidden = state.dashboardMode === "quick" && quickModeHiddenPages.has(button.dataset.page);
+    const accessHidden = button.dataset.page === "communications" && !access.canViewCommunications;
+    button.classList.toggle("quick-mode-hidden", modeHidden);
+    button.classList.toggle("access-hidden", accessHidden);
   });
   document.querySelectorAll("[data-dashboard-mode]").forEach((button) => {
     const active = button.dataset.dashboardMode === state.dashboardMode;
@@ -889,6 +896,10 @@ function updateBudgetTotalsFromInputs() {
 }
 
 function goTo(page) {
+  if (page === "communications" && !access.canViewCommunications) {
+    showToast("Your account does not have Communication Log access.");
+    return;
+  }
   if (state.dashboardMode === "quick" && quickModeHiddenPages.has(page)) {
     showToast("That tool is available in Full mode.");
     return;
@@ -1005,7 +1016,7 @@ function generateNightlyReport() {
     `Loyalty Opportunity: ${percent(calc.opportunityLoyalty)} (goal ${percent(state.goals.loyalty)})`,
     `Transaction Loyalty: ${percent(calc.transactionLoyalty)}`,
     `Buyback Ratio: ${ratio(calc.buybackRatio)} (goal ${ratio(state.goals.buybackRatio)})`,
-    `Payroll: ${number(calc.actualHours, 2)} worked / ${number(calc.scheduledHours, 2)} scheduled hours; ${money(calc.actualCost, 2)} actual / ${money(calc.scheduledCost, 2)} scheduled cost`,
+    ...(access.canViewPayroll ? [`Payroll: ${number(calc.actualHours, 2)} worked / ${number(calc.scheduledHours, 2)} scheduled hours; ${money(calc.actualCost, 2)} actual / ${money(calc.scheduledCost, 2)} scheduled cost`] : []),
     ...(contestLines.length ? ["", "ACTIVE CONTESTS", ...contestLines] : []), "",
     "WINS / CELEBRATIONS", state.nightly.wins || "None noted.", "", "OPPORTUNITIES / MISSES", state.nightly.opportunities || "None noted.", "",
     "FOLLOW-UP", state.nightly.followup || "None noted.", "", "TOMORROW’S HANDOFF", state.nightly.handoff || "None noted.",
@@ -1221,6 +1232,10 @@ document.querySelector("#operating-date").addEventListener("change", (event) => 
 renderAll();
 window.StoreOpsApp = {
   getState: () => clone(state),
+  setAccess: (nextAccess = {}) => {
+    access = { ...access, ...nextAccess };
+    renderAll();
+  },
   replaceState: (nextState, message = "Secure data loaded.") => {
     state = migrate(nextState);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
