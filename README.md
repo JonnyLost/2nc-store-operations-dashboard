@@ -13,6 +13,10 @@ The public app opens safely in demo mode until its protected Supabase connection
 - Fiscal-year and fiscal-week planning with multi-week schedules, copy-forward tools, and CSV plan import
 - Quarter/full-year sales, buyback, last-year, and payroll planning
 - Full weekly schedule with daily detail, payroll costing, copy tools, and warnings
+- Holiday scheduling with configurable 1.5x or 2x rates
+- Weekly overtime at 1.5x after 40 hours for eligible associates
+- Separate regular, overtime, and holiday payroll categories with no premium stacking
+- DMIT, GM, and GMIT exclusions from overtime and holiday premiums
 - Sales and buyback result entry, including unit goals and prior-year ratios
 - Excel-matched opportunity and transaction loyalty calculator
 - Scheduled/worked hours plus scheduled/actual payroll cost by associate
