@@ -2,9 +2,55 @@ const STORAGE_KEY = "store-operations-production-v1";
 const LEGACY_STORAGE_KEY = "store-operations-demo-v3";
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const positions = ["MOD", "Register Area", "Shelver", "Truck", "Associate", "Buyback", "Training", "Greeter", "Mythical Being"];
-const roles = ["GM", "ASM", "MOD", "Associate"];
+const roles = ["DMIT", "GM", "GMIT", "ASM", "MOD", "Associate"];
+const overtimeExemptRoles = new Set(["DMIT", "GM", "GMIT"]);
 const quickModeHiddenPages = new Set(["setup", "goals", "agenda", "periods"]);
 let access = { role: "demo", canViewPayroll: true, canViewCommunications: true };
+let factOffset = 0;
+const dailyFacts = [
+  { category: "Music", text: "Beethoven conducted the premiere of his Ninth Symphony in Vienna in 1824, when he was already profoundly deaf." },
+  { category: "Books", text: "Mary Shelley's Frankenstein was first published anonymously in 1818; her name appeared on the second edition in 1823." },
+  { category: "Movies", text: "The Jazz Singer, released in 1927, helped popularize synchronized dialogue in feature films." },
+  { category: "History", text: "The shortest war commonly recorded was the Anglo-Zanzibar War of 1896, which lasted less than an hour." },
+  { category: "Television", text: "I Love Lucy was filmed before a live studio audience using three cameras, a format that became a sitcom standard." },
+  { category: "Pop Culture", text: "The first modern crossword puzzle appeared in the New York World in December 1913." },
+  { category: "Music", text: "The Beatles played their final public concert on the roof of Apple Corps in London on January 30, 1969." },
+  { category: "Books", text: "J.R.R. Tolkien began writing The Hobbit after jotting down its famous opening sentence while grading papers." },
+  { category: "Movies", text: "The roar of the T. rex in Jurassic Park combined recordings of several animals, including an elephant, alligator, and tiger." },
+  { category: "History", text: "Oxford University was teaching students before the Aztec Empire was founded." },
+  { category: "Television", text: "The first episode of Saturday Night Live aired on October 11, 1975, with George Carlin as host." },
+  { category: "Pop Culture", text: "The Rubik's Cube was invented in 1974 by Hungarian architecture professor Ernő Rubik." },
+  { category: "Music", text: "The compact disc was introduced commercially in 1982; one of the first major titles released on CD was ABBA's The Visitors." },
+  { category: "Books", text: "Agatha Christie's novels have been translated into more than 100 languages." },
+  { category: "Movies", text: "Toy Story, released in 1995, was the first feature-length film made entirely with computer animation." },
+  { category: "History", text: "The ancient Roman city of Pompeii was rediscovered in the 18th century after being buried by Mount Vesuvius in 79 CE." },
+  { category: "Television", text: "Sesame Street premiered in 1969 and was created to combine television entertainment with early-childhood education." },
+  { category: "Pop Culture", text: "The first official Star Wars action figures reached stores in 1978 after demand outpaced the original production schedule." },
+  { category: "Music", text: "John Williams wrote the famous two-note shark motif for Jaws to suggest a relentless, instinctive threat." },
+  { category: "Books", text: "The first volume of the Oxford English Dictionary took more than 40 years of work before the full first edition was completed." },
+  { category: "Movies", text: "The Wizard of Oz shifts from sepia-toned Kansas to Technicolor Oz as Dorothy opens the farmhouse door." },
+  { category: "History", text: "Cleopatra lived closer in time to the Moon landing than to the construction of Egypt's Great Pyramid of Giza." },
+  { category: "Television", text: "Star Trek's original series premiered in 1966 and ran for three seasons before becoming a much larger franchise." },
+  { category: "Pop Culture", text: "LEGO's name comes from the Danish phrase “leg godt,” meaning “play well.”" },
+  { category: "Music", text: "The word karaoke combines Japanese words meaning “empty” and “orchestra.”" },
+  { category: "Books", text: "Dr. Seuss wrote Green Eggs and Ham after a challenge to create a book using only 50 different words." },
+  { category: "Movies", text: "Psycho's famous shower scene was assembled from dozens of rapid shots and took about a week to film." },
+  { category: "History", text: "The first successful powered airplane flight by the Wright brothers lasted 12 seconds on December 17, 1903." },
+  { category: "Television", text: "The Twilight Zone premiered in 1959 with Rod Serling serving as creator, principal writer, and on-screen host." },
+  { category: "Pop Culture", text: "Pac-Man was designed to attract a broader audience than the space-shooter games dominating arcades in 1980." },
+  { category: "Music", text: "Queen's Bohemian Rhapsody has no conventional repeating chorus, despite becoming one of rock's best-known singles." },
+  { category: "Books", text: "The working title for George Orwell's Nineteen Eighty-Four was The Last Man in Europe." },
+  { category: "Movies", text: "The lightsaber hum in Star Wars was built from the sounds of a film-projector motor and interference picked up by a microphone." },
+  { category: "History", text: "The Pony Express operated for only about 18 months, from 1860 to 1861." },
+  { category: "Television", text: "Mister Rogers began each episode by changing into a cardigan and sneakers to create a familiar transition into his television neighborhood." },
+  { category: "Pop Culture", text: "Nintendo was founded in 1889, decades before video games, as a maker of playing cards." },
+  { category: "Music", text: "Miles Davis recorded much of Kind of Blue with musicians working from sketches rather than fully written arrangements." },
+  { category: "Books", text: "Ray Bradbury wrote the first draft of Fahrenheit 451 on rented typewriters in a university library basement." },
+  { category: "Movies", text: "The stop-motion skeleton battle in Jason and the Argonauts took animator Ray Harryhausen months to complete." },
+  { category: "History", text: "The Statue of Liberty was a gift from France and was dedicated in New York Harbor in 1886." },
+  { category: "Television", text: "The Muppet Show was produced in the United Kingdom after U.S. networks initially passed on the series." },
+  { category: "Pop Culture", text: "The first issue of Action Comics, which introduced Superman, was published in 1938." },
+];
 const pageNames = {
   today: ["Today", "Daily command center"],
   setup: ["Store setup", "One-time foundation"],
@@ -37,17 +83,17 @@ const defaultState = {
   keyboardShortcutsActive: true,
   dashboardMode: "full",
   associates: [
-    { name: "Demo Manager", id: "SAMPLE-A", role: "GM", payRate: 24.5 },
-    { name: "Demo Assistant", id: "SAMPLE-B", role: "ASM", payRate: 20.25 },
-    { name: "Demo Lead", id: "SAMPLE-C", role: "MOD", payRate: 17.75 },
-    { name: "Associate A", id: "SAMPLE-D", role: "Associate", payRate: 14.25 },
-    { name: "Associate B", id: "SAMPLE-E", role: "Associate", payRate: 14.75 },
-    { name: "Associate C", id: "SAMPLE-F", role: "Associate", payRate: 13.75 },
-    { name: "Associate D", id: "SAMPLE-G", role: "Associate", payRate: 14.5 },
-    { name: "Associate E", id: "SAMPLE-H", role: "Associate", payRate: 13.5 },
+    { name: "Demo Manager", id: "SAMPLE-A", loginName: "", role: "GM", payRate: 24.5 },
+    { name: "Demo Assistant", id: "SAMPLE-B", loginName: "", role: "ASM", payRate: 20.25 },
+    { name: "Demo Lead", id: "SAMPLE-C", loginName: "", role: "MOD", payRate: 17.75 },
+    { name: "Associate A", id: "SAMPLE-D", loginName: "", role: "Associate", payRate: 14.25 },
+    { name: "Associate B", id: "SAMPLE-E", loginName: "", role: "Associate", payRate: 14.75 },
+    { name: "Associate C", id: "SAMPLE-F", loginName: "", role: "Associate", payRate: 13.75 },
+    { name: "Associate D", id: "SAMPLE-G", loginName: "", role: "Associate", payRate: 14.5 },
+    { name: "Associate E", id: "SAMPLE-H", loginName: "", role: "Associate", payRate: 13.5 },
   ],
   budgets: [
-    { day: "Sunday", date: "2026-07-26", budget: 5125, lastYear: 4980, buybackGoal: 360, lyBuybackUnits: 338, lyBuybackRatio: 1.084, payrollBudget: 970 },
+    { day: "Sunday", date: "2026-07-26", budget: 5125, lastYear: 4980, buybackGoal: 360, lyBuybackUnits: 338, lyBuybackRatio: 1.084, payrollBudget: 970, isHoliday: false, holidayName: "", holidayMultiplier: 1.5 },
     { day: "Monday", date: "2026-07-27", budget: 3980, lastYear: 3760, buybackGoal: 285, lyBuybackUnits: 271, lyBuybackRatio: 1.102, payrollBudget: 810 },
     { day: "Tuesday", date: "2026-07-28", budget: 3650, lastYear: 3540, buybackGoal: 270, lyBuybackUnits: 259, lyBuybackRatio: 1.093, payrollBudget: 785 },
     { day: "Wednesday", date: "2026-07-29", budget: 4616, lastYear: 4385, buybackGoal: 330, lyBuybackUnits: 312, lyBuybackRatio: 1.118, payrollBudget: 900 },
@@ -78,6 +124,9 @@ const defaultState = {
     sales: 4510, receivedUnits: 380, shelvableUnits: 342, nonRetailUnits: 38, usedUnitsSold: 280,
     newSignups: 7, blankTransactions: 42, totalTransactions: 238,
     actualHours: { "Demo Manager": 8, "Demo Assistant": 8.25, "Demo Lead": 8, "Associate A": 7.75, "Associate B": 7.25, "Associate C": 4 },
+  },
+  actualHoursByDate: {
+    "2026-07-30": { "Demo Manager": 8, "Demo Assistant": 8.25, "Demo Lead": 8, "Associate A": 7.75, "Associate B": 7.25, "Associate C": 4 },
   },
   beforeToday: {
     sales: 17885, lastYearSales: 16665, receivedUnits: 1350, nonRetailUnits: 120, shelvableUnits: 1230, usedUnitsSold: 1120,
@@ -196,14 +245,14 @@ function emptyWeek(year, week) {
   const start = fiscalWeekStart(year, week);
   const budgets = days.map((day, index) => {
     const date = new Date(start); date.setDate(start.getDate() + index);
-    return { day, date: dateValue(date), budget: 0, lastYear: 0, buybackGoal: 0, lyBuybackUnits: 0, lyBuybackRatio: 0, payrollBudget: 0 };
+    return { day, date: dateValue(date), budget: 0, lastYear: 0, buybackGoal: 0, lyBuybackUnits: 0, lyBuybackRatio: 0, payrollBudget: 0, isHoliday: false, holidayName: "", holidayMultiplier: 1.5 };
   });
   return {
     budgets, weeklySchedule: days.map(() => []), priorities: [], teamMessage: "", results: {
       sales: 0, receivedUnits: 0, shelvableUnits: 0, nonRetailUnits: 0, usedUnitsSold: 0,
       newSignups: 0, blankTransactions: 0, totalTransactions: 0, actualHours: {},
     }, beforeToday: { sales: 0, lastYearSales: 0, receivedUnits: 0, nonRetailUnits: 0, shelvableUnits: 0, usedUnitsSold: 0, newSignups: 0, blankTransactions: 0, totalTransactions: 0, payrollCost: 0 },
-    associateDaily: {},
+    associateDaily: {}, actualHoursByDate: {},
   };
 }
 function snapshotCurrentWeek() {
@@ -211,7 +260,7 @@ function snapshotCurrentWeek() {
   state.weeks[weekKey()] = clone({
     budgets: state.budgets, weeklySchedule: state.weeklySchedule, priorities: state.priorities,
     teamMessage: state.teamMessage, results: state.results, beforeToday: state.beforeToday,
-    associateDaily: state.associateDaily,
+    associateDaily: state.associateDaily, actualHoursByDate: state.actualHoursByDate,
   });
 }
 function activateWeek(year, week, preferredDate = "") {
@@ -230,6 +279,7 @@ function activateWeek(year, week, preferredDate = "") {
   const validDate = state.budgets.some((row) => row.date === preferredDate) ? preferredDate : state.budgets[0].date;
   state.operatingDate = validDate;
   state.selectedScheduleDay = Math.max(0, state.budgets.findIndex((row) => row.date === validDate));
+  state.results.actualHours = clone(state.actualHoursByDate?.[validDate] || {});
 }
 function ensureAssociateDaily() {
   state.associateDaily ||= {};
@@ -265,7 +315,17 @@ function ensureAssociateDaily() {
 function migrate(saved) {
   const merged = { ...clone(defaultState), ...saved };
   merged.dashboardMode = saved.dashboardMode === "quick" ? "quick" : "full";
-  merged.associates = (saved.associates || defaultState.associates).map((a, i) => ({ ...a, payRate: Number(a.payRate ?? defaultState.associates[i]?.payRate ?? 14) }));
+  merged.associates = (saved.associates || defaultState.associates).map((a, i) => ({
+    ...a,
+    loginName: String(a.loginName || "").trim(),
+    payRate: Number(a.payRate ?? defaultState.associates[i]?.payRate ?? 14),
+  }));
+  merged.budgets = (saved.budgets || defaultState.budgets).map((row, index) => ({
+    ...clone(defaultState.budgets[index] || {}), ...row,
+    isHoliday: Boolean(row.isHoliday),
+    holidayName: String(row.holidayName || ""),
+    holidayMultiplier: Number(row.holidayMultiplier) === 2 ? 2 : 1.5,
+  }));
   merged.weeklySchedule = saved.weeklySchedule || days.map((_, i) => i === 4 ? clone(saved.schedule || demoShifts) : clone(defaultState.weeklySchedule[i]));
   merged.weeklySchedule = merged.weeklySchedule.map((schedule) => schedule.map((shift) => ({ ...shift, position: normalizedPosition(shift.position) })));
   merged.results = { ...clone(defaultState.results), ...(saved.results || {}) };
@@ -282,14 +342,18 @@ function migrate(saved) {
   merged.reportSnapshots = saved.reportSnapshots || [];
   merged.weeks = saved.weeks || {};
   merged.associateDaily = saved.associateDaily || {};
+  merged.actualHoursByDate = clone(saved.actualHoursByDate || {});
+  if (!merged.actualHoursByDate[merged.operatingDate] && Object.keys(merged.results.actualHours || {}).length) {
+    merged.actualHoursByDate[merged.operatingDate] = clone(merged.results.actualHours);
+  }
   return merged;
 }
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
-    return saved ? migrate(JSON.parse(saved)) : clone(defaultState);
+    return saved ? migrate(JSON.parse(saved)) : migrate(clone(defaultState));
   }
-  catch { return clone(defaultState); }
+  catch { return migrate(clone(defaultState)); }
 }
 function persist(message = "Saved. Dashboard and agenda updated.") {
   snapshotCurrentWeek();
@@ -308,6 +372,83 @@ function showToast(message) {
 function currentDayIndex() {
   const index = state.budgets.findIndex((row) => row.date === state.operatingDate);
   return index >= 0 ? index : state.selectedScheduleDay;
+}
+function greetingForHour(hour = new Date().getHours()) {
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
+function signedInUserName() {
+  return String(window.STORE_OPS_WP?.user?.name || "").trim();
+}
+function signedInUserLogin() {
+  return String(window.STORE_OPS_WP?.user?.login || "").trim();
+}
+function userFirstName() {
+  return signedInUserName().split(/\s+/)[0] || "team";
+}
+function normalizedName(value) {
+  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+}
+function normalizedLogin(value) {
+  return String(value || "").trim().toLowerCase();
+}
+function shiftsForSignedInUser() {
+  const login = normalizedLogin(signedInUserLogin());
+  if (login) {
+    const associate = state.associates.find((person) => normalizedLogin(person.loginName) === login);
+    if (associate) {
+      return currentSchedule().filter((shift) => normalizedName(shift.associate) === normalizedName(associate.name));
+    }
+  }
+  const fullName = normalizedName(signedInUserName());
+  if (!fullName) return [];
+  const firstName = fullName.split(" ")[0];
+  const exact = currentSchedule().filter((shift) => normalizedName(shift.associate) === fullName);
+  if (exact.length) return exact;
+  const firstNameMatches = currentSchedule().filter((shift) => {
+    const shiftFirstName = normalizedName(shift.associate).split(" ")[0];
+    return shiftFirstName === firstName || (Math.min(shiftFirstName.length, firstName.length) >= 3 && (shiftFirstName.startsWith(firstName) || firstName.startsWith(shiftFirstName)));
+  });
+  const matchedNames = new Set(firstNameMatches.map((shift) => normalizedName(shift.associate)));
+  return matchedNames.size === 1 ? firstNameMatches : [];
+}
+function userScheduleText() {
+  if (!signedInUserName()) return "The full team schedule and assignments are ready below.";
+  const shifts = shiftsForSignedInUser();
+  if (!shifts.length) return "You aren’t listed on today’s schedule.";
+  return shifts.map((shift) => {
+    const role = shift.position ? ` · ${shift.position}` : "";
+    const assignment = shift.assignment ? ` · ${shift.assignment}` : "";
+    return `You’re scheduled ${timeText(shift.start)}–${timeText(shift.end)}${role}${assignment}.`;
+  }).join(" ");
+}
+function dailyFactIndex(now = new Date()) {
+  const start = Date.UTC(now.getFullYear(), 0, 0);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const day = Math.floor((today - start) / 86400000);
+  return (now.getFullYear() * 367 + day + factOffset) % dailyFacts.length;
+}
+function renderFact(now = new Date()) {
+  const fact = dailyFacts[dailyFactIndex(now)];
+  document.querySelector("#fact-category").textContent = fact.category;
+  document.querySelector("#fact-of-the-day").textContent = fact.text;
+}
+function refreshTodayHeader(now = new Date()) {
+  const greeting = document.querySelector("#today-greeting");
+  const context = document.querySelector("#today-context");
+  if (greeting) greeting.textContent = `${greetingForHour(now.getHours())}, ${userFirstName()}.`;
+  const scheduleSummary = document.querySelector("#user-schedule-summary");
+  if (scheduleSummary) scheduleSummary.textContent = userScheduleText();
+  if (context) {
+    const day = state.budgets[currentDayIndex()]?.day || days[new Date(`${state.operatingDate}T12:00:00`).getDay()] || "Today";
+    const storeName = state.store.number === "DEMO"
+      ? "Demonstration store"
+      : state.store.name && state.store.name !== "Sample Store"
+        ? `Store ${state.store.number} · ${state.store.name}`
+        : `Store ${state.store.number}`;
+    context.textContent = `${day} · ${storeName}`;
+  }
 }
 function currentBudget() { return state.budgets[currentDayIndex()] || state.budgets[4]; }
 function currentSchedule() { return state.weeklySchedule[currentDayIndex()] || []; }
@@ -345,13 +486,82 @@ function shiftHours(shift) {
   if (minutes < 0) minutes += 1440;
   return Math.max(0, (minutes - Number(shift.breakMinutes || 0)) / 60);
 }
-function shiftCost(shift) { return shiftHours(shift) * Number(associateByName(shift.associate)?.payRate || 0); }
 function dayScheduledHours(index) { return (state.weeklySchedule[index] || []).reduce((sum, shift) => sum + shiftHours(shift), 0); }
-function dayScheduledCost(index) { return (state.weeklySchedule[index] || []).reduce((sum, shift) => sum + shiftCost(shift), 0); }
-function actualHoursTotal() { return Object.values(state.results.actualHours || {}).reduce((sum, value) => sum + Number(value || 0), 0); }
-function actualCostTotal() {
-  return Object.entries(state.results.actualHours || {}).reduce((sum, [name, hours]) => sum + Number(hours || 0) * Number(associateByName(name)?.payRate || 0), 0);
+function isPremiumEligible(associate) { return !overtimeExemptRoles.has(String(associate?.role || "").trim().toUpperCase()); }
+function payrollBreakdown(entries) {
+  const result = { totalHours: 0, regularHours: 0, overtimeHours: 0, holidayHours: 0, totalCost: 0, byDay: {}, byDayAssociate: {}, byAssociate: {}, byEntry: {} };
+  const grouped = new Map();
+  entries.forEach((entry, index) => {
+    const normalized = { ...entry, entryIndex: entry.entryIndex ?? index, hours: Math.max(0, Number(entry.hours || 0)) };
+    if (!grouped.has(normalized.associate)) grouped.set(normalized.associate, []);
+    grouped.get(normalized.associate).push(normalized);
+  });
+  grouped.forEach((associateEntries, name) => {
+    const associate = associateByName(name);
+    const rate = Number(associate?.payRate || 0);
+    const eligible = isPremiumEligible(associate);
+    const totalHours = associateEntries.reduce((sum, entry) => sum + entry.hours, 0);
+    const nonHolidayHours = associateEntries.filter((entry) => !entry.isHoliday).reduce((sum, entry) => sum + entry.hours, 0);
+    let overtimeRemaining = eligible ? Math.min(Math.max(0, totalHours - 40), nonHolidayHours) : 0;
+    const entryPay = new Map();
+    [...associateEntries].sort((a, b) => b.dayIndex - a.dayIndex || b.entryIndex - a.entryIndex).forEach((entry) => {
+      const holidayHours = eligible && entry.isHoliday ? entry.hours : 0;
+      const overtimeHours = !entry.isHoliday ? Math.min(entry.hours, overtimeRemaining) : 0;
+      overtimeRemaining -= overtimeHours;
+      const regularHours = entry.hours - holidayHours - overtimeHours;
+      const multiplier = entry.isHoliday && eligible ? (Number(entry.holidayMultiplier) === 2 ? 2 : 1.5) : 1;
+      const cost = rate * (regularHours + overtimeHours * 1.5 + holidayHours * multiplier);
+      entryPay.set(entry.entryIndex, { hours: entry.hours, regularHours, overtimeHours, holidayHours, cost });
+    });
+    const summary = [...entryPay.values()].reduce((sum, item) => ({
+      hours: sum.hours + item.hours, regularHours: sum.regularHours + item.regularHours,
+      overtimeHours: sum.overtimeHours + item.overtimeHours, holidayHours: sum.holidayHours + item.holidayHours, cost: sum.cost + item.cost,
+    }), { hours: 0, regularHours: 0, overtimeHours: 0, holidayHours: 0, cost: 0 });
+    result.byAssociate[name] = summary;
+    associateEntries.forEach((entry) => {
+      const item = entryPay.get(entry.entryIndex);
+      result.byEntry[entry.entryIndex] = item;
+      result.byDay[entry.dayIndex] ||= { hours: 0, regularHours: 0, overtimeHours: 0, holidayHours: 0, cost: 0 };
+      Object.keys(result.byDay[entry.dayIndex]).forEach((key) => { result.byDay[entry.dayIndex][key] += item[key]; });
+      result.byDayAssociate[entry.dayIndex] ||= {};
+      result.byDayAssociate[entry.dayIndex][name] ||= { hours: 0, regularHours: 0, overtimeHours: 0, holidayHours: 0, cost: 0 };
+      Object.keys(result.byDayAssociate[entry.dayIndex][name]).forEach((key) => { result.byDayAssociate[entry.dayIndex][name][key] += item[key]; });
+    });
+    result.totalHours += summary.hours; result.regularHours += summary.regularHours;
+    result.overtimeHours += summary.overtimeHours; result.holidayHours += summary.holidayHours; result.totalCost += summary.cost;
+  });
+  return result;
 }
+function scheduledPayroll() {
+  let entryIndex = 0;
+  const entries = state.weeklySchedule.flatMap((schedule, dayIndex) => schedule.map((shift) => ({
+    entryIndex: entryIndex++, associate: shift.associate, dayIndex, hours: shiftHours(shift),
+    isHoliday: Boolean(state.budgets[dayIndex]?.isHoliday), holidayMultiplier: state.budgets[dayIndex]?.holidayMultiplier,
+  })));
+  return payrollBreakdown(entries);
+}
+function actualPayroll(currentDraft = null) {
+  const hoursByDate = clone(state.actualHoursByDate || {});
+  if (currentDraft) hoursByDate[state.operatingDate] = clone(currentDraft);
+  const entries = [];
+  state.budgets.forEach((budget, dayIndex) => {
+    Object.entries(hoursByDate[budget.date] || {}).forEach(([associate, hours]) => entries.push({
+      associate, dayIndex, hours, isHoliday: Boolean(budget.isHoliday), holidayMultiplier: budget.holidayMultiplier,
+    }));
+  });
+  return payrollBreakdown(entries);
+}
+function shiftCost(shift) {
+  const dayIndex = state.weeklySchedule.findIndex((schedule) => schedule.includes(shift));
+  const shiftIndex = dayIndex >= 0 ? state.weeklySchedule[dayIndex].indexOf(shift) : -1;
+  if (dayIndex < 0 || shiftIndex < 0) return shiftHours(shift) * Number(associateByName(shift.associate)?.payRate || 0);
+  let entryIndex = 0;
+  for (let index = 0; index < dayIndex; index += 1) entryIndex += state.weeklySchedule[index].length;
+  return Number(scheduledPayroll().byEntry[entryIndex + shiftIndex]?.cost || 0);
+}
+function dayScheduledCost(index) { return Number(scheduledPayroll().byDay[index]?.cost || 0); }
+function actualHoursTotal() { return Object.values(state.results.actualHours || {}).reduce((sum, value) => sum + Number(value || 0), 0); }
+function actualCostTotal() { return Number(actualPayroll().byDay[currentDayIndex()]?.cost || 0); }
 
 function calculations() {
   const index = currentDayIndex();
@@ -386,6 +596,8 @@ function formatContestResult(contest, value = contestTotals(contest).result) {
 }
 
 function renderToday() {
+  refreshTodayHeader();
+  renderFact();
   const calc = calculations();
   const contests = activeContests();
   const metrics = [
@@ -435,6 +647,7 @@ function renderSetup() {
     <tr data-associate-index="${index}">
       <td><input class="inline-input associate-field" data-field="name" value="${esc(associate.name)}" aria-label="Associate name"></td>
       <td><input class="inline-input associate-field" data-field="id" value="${esc(associate.id)}" aria-label="Employee ID"></td>
+      <td><input class="inline-input associate-field" data-field="loginName" value="${esc(associate.loginName || "")}" placeholder="WordPress username" autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="WordPress login name"></td>
       <td><select class="inline-input associate-field" data-field="role" aria-label="Role">${roles.map((role) => `<option ${selected(role, associate.role)}>${role}</option>`).join("")}</select></td>
       <td class="payroll-tool"><input class="inline-input associate-field pay-rate-input" data-field="payRate" type="number" step=".01" min="0" value="${associate.payRate}" aria-label="Hourly pay rate"></td>
       <td><button class="remove-button remove-associate" aria-label="Remove ${esc(associate.name)}">×</button></td>
@@ -474,7 +687,8 @@ function renderWeekOverview() {
   document.querySelector("#week-tabs").innerHTML = state.budgets.map((row, index) => `
     <button type="button" role="tab" class="week-tab ${index === state.selectedScheduleDay ? "active" : ""}" data-schedule-day="${index}">
       <span>${row.day.slice(0, 3)}</span><strong>${dateText(row.date)}</strong></button>`).join("");
-  document.querySelector("#weekly-overview-head").innerHTML = `<tr><th>Associate</th>${state.budgets.map((row) => `<th>${row.day.slice(0, 3)}<br><span>${dateText(row.date)}</span></th>`).join("")}<th>Week</th></tr>`;
+  document.querySelector("#weekly-overview-head").innerHTML = `<tr><th>Associate</th>${state.budgets.map((row) => `<th class="${row.isHoliday ? "holiday-column" : ""}">${row.day.slice(0, 3)}${row.isHoliday ? '<em>Holiday</em>' : ""}<br><span>${dateText(row.date)}</span></th>`).join("")}<th>Week</th></tr>`;
+  const scheduled = scheduledPayroll();
   document.querySelector("#weekly-overview-body").innerHTML = state.associates.map((associate) => {
     let total = 0;
     const cells = state.weeklySchedule.map((schedule) => {
@@ -483,22 +697,28 @@ function renderWeekOverview() {
       total += hours;
       return `<td>${shifts.length ? shifts.map((shift) => `<span>${timeText(shift.start).replace(":00", "")}–${timeText(shift.end).replace(":00", "")}</span>`).join("") : "—"}</td>`;
     }).join("");
-    return `<tr><td><strong>${esc(associate.name)}</strong><small>${esc(associate.role)}</small></td>${cells}<td><strong class="${total > 40 ? "negative" : ""}">${number(total, 1)}h</strong></td></tr>`;
+    const pay = scheduled.byAssociate[associate.name] || { overtimeHours: 0, holidayHours: 0 };
+    return `<tr><td><strong>${esc(associate.name)}</strong><small>${esc(associate.role)}${pay.overtimeHours ? ` · ${number(pay.overtimeHours, 1)} OT` : ""}${pay.holidayHours ? ` · ${number(pay.holidayHours, 1)} holiday` : ""}</small></td>${cells}<td><strong class="${pay.overtimeHours > 0 ? "negative" : ""}">${number(total, 1)}h</strong></td></tr>`;
   }).join("");
   const weeklyHours = state.weeklySchedule.reduce((sum, _, i) => sum + dayScheduledHours(i), 0);
-  const weeklyCost = state.weeklySchedule.reduce((sum, _, i) => sum + dayScheduledCost(i), 0);
+  const weeklyCost = scheduled.totalCost;
   const weeklyBudget = state.budgets.reduce((sum, row) => sum + Number(row.payrollBudget || 0), 0);
   document.querySelector("#weekly-overview-foot").innerHTML = state.payrollToolsActive
     ? `<tr><th>Daily cost</th>${state.budgets.map((_, i) => `<th>${money(dayScheduledCost(i))}</th>`).join("")}<th>${money(weeklyCost)}</th></tr>`
     : "";
-  document.querySelector("#weekly-payroll-summary").innerHTML = `<span>${number(weeklyHours, 1)} scheduled hours</span><strong>${money(weeklyCost)} / ${money(weeklyBudget)}</strong><small class="${weeklyCost <= weeklyBudget ? "positive" : "negative"}">${money(Math.abs(weeklyBudget - weeklyCost))} ${weeklyCost <= weeklyBudget ? "available" : "over budget"}</small>`;
+  document.querySelector("#weekly-payroll-summary").innerHTML = `<span>${number(weeklyHours, 1)}h total · ${number(scheduled.overtimeHours, 1)}h OT · ${number(scheduled.holidayHours, 1)}h holiday</span><strong>${money(weeklyCost)} / ${money(weeklyBudget)}</strong><small class="${weeklyCost <= weeklyBudget ? "positive" : "negative"}">${money(Math.abs(weeklyBudget - weeklyCost))} ${weeklyCost <= weeklyBudget ? "available" : "over budget"}</small>`;
 }
 
 function renderSchedule() {
   renderWeekOverview();
   const dayIndex = state.selectedScheduleDay;
   const schedule = state.weeklySchedule[dayIndex] || [];
-  document.querySelector("#schedule-day-label").textContent = `${state.budgets[dayIndex].day} · ${dateText(state.budgets[dayIndex].date, { month: "long", day: "numeric" })}`;
+  const dayPlan = state.budgets[dayIndex];
+  document.querySelector("#schedule-day-label").textContent = `${dayPlan.day} · ${dateText(dayPlan.date, { month: "long", day: "numeric" })}${dayPlan.isHoliday && dayPlan.holidayName ? ` · ${dayPlan.holidayName}` : ""}`;
+  document.querySelector("#schedule-holiday").checked = Boolean(dayPlan.isHoliday);
+  document.querySelector("#holiday-name").value = dayPlan.holidayName || "";
+  document.querySelector("#holiday-multiplier").value = String(Number(dayPlan.holidayMultiplier) === 2 ? 2 : 1.5);
+  document.querySelector("#holiday-details").hidden = !dayPlan.isHoliday;
   document.querySelector("#shift-rows").innerHTML = schedule.map((shift, index) => `
     <div class="shift-row" data-shift-index="${index}">
       <label><span>Associate</span><select class="shift-field" data-field="associate">${state.associates.map((a) => `<option ${selected(a.name, shift.associate)}>${esc(a.name)}</option>`).join("")}</select></label>
@@ -523,8 +743,8 @@ function renderScheduleWarnings() {
   const registerCoverage = schedule.some((shift) => shift.position === "Register Area");
   if (!registerCoverage) warnings.push("No register assigned");
   state.associates.forEach((associate) => {
-    const weekHours = state.weeklySchedule.flat().filter((s) => s.associate === associate.name).reduce((sum, shift) => sum + shiftHours(shift), 0);
-    if (weekHours > 40) warnings.push(`${associate.name}: ${number(weekHours, 1)}h overtime`);
+    const pay = scheduledPayroll().byAssociate[associate.name];
+    if (pay?.overtimeHours > 0) warnings.push(`${associate.name}: ${number(pay.overtimeHours, 1)}h overtime`);
   });
   document.querySelector("#schedule-warnings").innerHTML = warnings.length
     ? warnings.map((warning) => `<span>⚠ ${esc(warning)}</span>`).join("")
@@ -555,14 +775,14 @@ function renderResults() {
   };
   Object.entries(fields).forEach(([selector, key]) => { document.querySelector(selector).value = state.results[key] || 0; });
   const schedule = currentSchedule();
+  const actual = actualPayroll(state.results.actualHours || {});
   document.querySelector("#payroll-results-summary").innerHTML = `
     <div class="payroll-summary-head"><span>Associate</span><span>Scheduled</span><span>Worked</span><span>Actual cost</span></div>
     ${schedule.map((shift) => {
-      const rate = Number(associateByName(shift.associate)?.payRate || 0);
       const worked = Number(state.results.actualHours?.[shift.associate] ?? shiftHours(shift));
       return `<label class="payroll-person"><strong>${esc(shift.associate)}</strong><span>${number(shiftHours(shift), 2)}h</span>
         <input class="actual-hours-field" data-associate="${esc(shift.associate)}" type="number" min="0" step=".25" value="${worked}" aria-label="${esc(shift.associate)} worked hours">
-        <output>${money(worked * rate, 2)}</output></label>`;
+        <output>${money(actual.byDayAssociate[currentDayIndex()]?.[shift.associate]?.cost || 0, 2)}</output></label>`;
     }).join("")}`;
   renderContestResults();
   updateResultCallouts();
@@ -624,14 +844,16 @@ function updateResultCallouts() {
   const scheduledHours = dayScheduledHours(currentDayIndex());
   const scheduledCost = dayScheduledCost(currentDayIndex());
   const actualHours = Object.values(result.actualHours).reduce((sum, v) => sum + v, 0);
-  const actualCost = Object.entries(result.actualHours).reduce((sum, [name, hours]) => sum + hours * Number(associateByName(name)?.payRate || 0), 0);
+  const actual = actualPayroll(result.actualHours);
+  const actualCost = Number(actual.byDay[currentDayIndex()]?.cost || 0);
   document.querySelector("#sales-callout").textContent = `${varianceText(salesVariance)} ${salesVariance >= 0 ? "above" : "below"} today’s budget of ${money(budget)}.`;
   document.querySelector("#buyback-callout").textContent = `Today’s ratio: ${ratio(buyback)} · ${number(result.receivedUnits - result.nonRetailUnits)} shelvable ÷ ${number(result.usedUnitsSold)} used units sold.`;
   document.querySelector("#loyalty-callout").innerHTML = `Loyalty opportunity: <strong>${percent(opportunity)}</strong> · Transaction loyalty: <strong>${percent(transaction)}</strong>`;
   document.querySelector("#payroll-callout").innerHTML = `
     <strong>${number(scheduledHours, 2)}h scheduled / ${number(actualHours, 2)}h worked</strong><br>
     ${money(scheduledCost, 2)} scheduled cost · ${money(actualCost, 2)} actual cost ·
-    <span class="${actualCost <= currentBudget().payrollBudget ? "positive" : "negative"}">${money(Math.abs(currentBudget().payrollBudget - actualCost), 2)} ${actualCost <= currentBudget().payrollBudget ? "available" : "over budget"}</span>`;
+    <span class="${actualCost <= currentBudget().payrollBudget ? "positive" : "negative"}">${money(Math.abs(currentBudget().payrollBudget - actualCost), 2)} ${actualCost <= currentBudget().payrollBudget ? "available" : "over budget"}</span><br>
+    <small>Week: ${number(actual.regularHours, 2)} regular · ${number(actual.overtimeHours, 2)} overtime at 1.5× · ${number(actual.holidayHours, 2)} holiday</small>`;
 }
 
 function renderAgenda() {
@@ -860,11 +1082,21 @@ function renderAll() {
   document.body.classList.toggle("owner-access", access.role === "owner" || access.role === "demo");
   document.body.classList.toggle("shortcuts-off", !state.keyboardShortcutsActive);
   document.body.classList.toggle("quick-mode", state.dashboardMode === "quick");
-  document.querySelectorAll(".nav-link").forEach((button) => {
+  const navButtons = [...document.querySelectorAll(".nav-link")];
+  navButtons.forEach((button) => {
     const modeHidden = state.dashboardMode === "quick" && quickModeHiddenPages.has(button.dataset.page);
     const accessHidden = button.dataset.page === "communications" && !access.canViewCommunications;
     button.classList.toggle("quick-mode-hidden", modeHidden);
     button.classList.toggle("access-hidden", accessHidden);
+  });
+  let quickIndex = 0;
+  navButtons.forEach((button, fullIndex) => {
+    const number = button.querySelector("span");
+    if (!number) return;
+    const visibleInQuick = !quickModeHiddenPages.has(button.dataset.page)
+      && !(button.dataset.page === "communications" && !access.canViewCommunications);
+    if (state.dashboardMode === "quick" && visibleInQuick) quickIndex += 1;
+    number.textContent = String(state.dashboardMode === "quick" && visibleInQuick ? quickIndex : fullIndex + 1).padStart(2, "0");
   });
   document.querySelectorAll("[data-dashboard-mode]").forEach((button) => {
     const active = button.dataset.dashboardMode === state.dashboardMode;
@@ -876,6 +1108,10 @@ function renderAll() {
     : "All planning, reporting, and setup tools are visible.";
   renderFiscalControls();
   document.querySelector("#sidebar-store-name").textContent = state.store.number === "DEMO" ? "Demo Store" : `Store ${state.store.number}`;
+  const suiteStoreContext = document.querySelector("#suite-store-context");
+  if (suiteStoreContext) suiteStoreContext.textContent = `${state.store.number === "DEMO" ? "Demonstration store" : `Store ${state.store.number}`} • Daily operations`;
+  const currentAppStore = document.querySelector("#current-app-store");
+  if (currentAppStore) currentAppStore.textContent = `Today at ${state.store.number === "DEMO" ? "the demonstration store" : `Store ${state.store.number}`}`;
   renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
 }
 
@@ -914,13 +1150,20 @@ function goTo(page) {
 
 function saveSetup() {
   const oldNames = state.associates.map((a) => a.name);
+  const nextAssociates = [...document.querySelectorAll("[data-associate-index]")].map((row) => ({
+    name: row.querySelector('[data-field="name"]').value.trim(), id: row.querySelector('[data-field="id"]').value.trim(),
+    loginName: row.querySelector('[data-field="loginName"]').value.trim(),
+    role: row.querySelector('[data-field="role"]').value, payRate: Number(row.querySelector('[data-field="payRate"]').value || 0),
+  })).filter((a) => a.name);
+  const loginNames = nextAssociates.map((associate) => normalizedLogin(associate.loginName)).filter(Boolean);
+  if (new Set(loginNames).size !== loginNames.length) {
+    showToast("Each WordPress login can only be assigned to one associate.");
+    return;
+  }
   state.store = { number: document.querySelector("#store-number").value.trim(), name: document.querySelector("#store-name").value.trim(), gm: document.querySelector("#gm-name").value.trim(), weekStart: document.querySelector("#week-start").value };
   state.payrollToolsActive = document.querySelector("#payroll-tools-enabled").checked;
   state.keyboardShortcutsActive = document.querySelector("#keyboard-shortcuts-enabled").checked;
-  state.associates = [...document.querySelectorAll("[data-associate-index]")].map((row) => ({
-    name: row.querySelector('[data-field="name"]').value.trim(), id: row.querySelector('[data-field="id"]').value.trim(),
-    role: row.querySelector('[data-field="role"]').value, payRate: Number(row.querySelector('[data-field="payRate"]').value || 0),
-  })).filter((a) => a.name);
+  state.associates = nextAssociates;
   state.contestsEnabled = document.querySelector("#contests-enabled").checked;
   [...document.querySelectorAll("[data-contest-index]")].forEach((row, index) => {
     state.contests[index].active = row.querySelector('[data-field="active"]').checked;
@@ -939,7 +1182,10 @@ function saveSetup() {
 
 function saveGoals() {
   state.budgets = [...document.querySelectorAll("[data-budget-index]")].map((row, index) => ({
-    day: state.budgets[index].day, ...Object.fromEntries(["date", "budget", "lastYear", "buybackGoal", "lyBuybackUnits", "lyBuybackRatio", "payrollBudget"].map((field) => {
+    day: state.budgets[index].day,
+    isHoliday: Boolean(state.budgets[index].isHoliday), holidayName: state.budgets[index].holidayName || "",
+    holidayMultiplier: Number(state.budgets[index].holidayMultiplier) === 2 ? 2 : 1.5,
+    ...Object.fromEntries(["date", "budget", "lastYear", "buybackGoal", "lyBuybackUnits", "lyBuybackRatio", "payrollBudget"].map((field) => {
       const value = row.querySelector(`[data-field="${field}"]`).value;
       return [field, field === "date" ? value : Number(value || 0)];
     })),
@@ -948,7 +1194,15 @@ function saveGoals() {
   persist("Sales, buyback, loyalty, and payroll plans saved."); renderAll();
 }
 
+function collectHolidaySettings() {
+  const budget = state.budgets[state.selectedScheduleDay];
+  if (!budget) return;
+  budget.isHoliday = document.querySelector("#schedule-holiday").checked;
+  budget.holidayName = document.querySelector("#holiday-name").value.trim();
+  budget.holidayMultiplier = Number(document.querySelector("#holiday-multiplier").value) === 2 ? 2 : 1.5;
+}
 function collectSchedule() {
+  collectHolidaySettings();
   state.weeklySchedule[state.selectedScheduleDay] = [...document.querySelectorAll("[data-shift-index]")].map((row) => ({
     associate: row.querySelector('[data-field="associate"]').value, start: row.querySelector('[data-field="start"]').value,
     end: row.querySelector('[data-field="end"]').value, position: row.querySelector('[data-field="position"]').value,
@@ -974,6 +1228,8 @@ function saveSchedule() {
 
 function saveResults() {
   state.results = draftResults();
+  state.actualHoursByDate ||= {};
+  state.actualHoursByDate[state.operatingDate] = clone(state.results.actualHours);
   ensureAssociateDaily();
   document.querySelectorAll(".daily-associate-field").forEach((input) => {
     const entry = state.associateDaily[input.dataset.associate];
@@ -1081,6 +1337,9 @@ document.addEventListener("click", (event) => {
   }
   if (event.target.closest("#menu-button")) document.body.classList.toggle("nav-open");
   if (event.target.closest("#account-menu")) window.StoreOpsProduction?.openAccount();
+  if (event.target.closest("#another-fact")) { factOffset += 1; renderFact(); }
+  const appMenu = document.querySelector("#app-menu");
+  if (appMenu?.open && !event.target.closest("#app-menu")) appMenu.removeAttribute("open");
   if (event.target.closest("#export-backup")) window.StoreOpsProduction?.exportBackup(clone(state));
   if (event.target.closest("#restore-backup")) document.querySelector("#restore-backup-file").click();
   if (event.target.closest("#cloud-backup")) window.StoreOpsProduction?.createCloudBackup(clone(state));
@@ -1132,7 +1391,7 @@ document.addEventListener("click", (event) => {
   }
   const dayTab = event.target.closest("[data-schedule-day]");
   if (dayTab) { collectSchedule(); state.selectedScheduleDay = Number(dayTab.dataset.scheduleDay); renderSchedule(); }
-  if (event.target.closest("#add-associate")) { state.associates.push({ name: "New associate", id: "", role: "Associate", payRate: 14 }); renderSetup(); }
+  if (event.target.closest("#add-associate")) { state.associates.push({ name: "New associate", id: "", loginName: "", role: "Associate", payRate: 14 }); renderSetup(); }
   const removeAssociate = event.target.closest(".remove-associate");
   if (removeAssociate) { state.associates.splice(Number(removeAssociate.closest("[data-associate-index]").dataset.associateIndex), 1); renderSetup(); }
   if (event.target.closest("#add-shift")) {
@@ -1186,6 +1445,14 @@ document.addEventListener("input", (event) => {
     const row = event.target.closest("[data-shift-index]"); const shift = state.weeklySchedule[state.selectedScheduleDay][Number(row.dataset.shiftIndex)];
     row.querySelectorAll("output")[0].textContent = `${number(shiftHours(shift), 2)}h`; row.querySelectorAll("output")[1].textContent = money(shiftCost(shift), 2);
   }
+  if (event.target.matches("#holiday-name, #holiday-multiplier")) {
+    collectHolidaySettings(); renderWeekOverview(); renderScheduleWarnings();
+  }
+});
+document.querySelector("#schedule-holiday").addEventListener("change", (event) => {
+  collectHolidaySettings();
+  document.querySelector("#holiday-details").hidden = !event.target.checked;
+  renderWeekOverview(); renderScheduleWarnings();
 });
 document.addEventListener("focusout", (event) => {
   if (!event.target.matches(".shift-time-field")) return;
@@ -1205,6 +1472,7 @@ document.addEventListener("focusout", (event) => {
   row.querySelectorAll("output")[1].textContent = money(shiftCost(shift), 2);
 });
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") document.querySelector("#app-menu")?.removeAttribute("open");
   if (!state.keyboardShortcutsActive) return;
   if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
   const shortcutPages = ["periods", "today", "setup", "goals", "schedule", "results", "agenda", "nightly", "midday", "communications"];
@@ -1226,10 +1494,12 @@ document.querySelector("#fiscal-week").addEventListener("change", (event) => {
 });
 document.querySelector("#operating-date").addEventListener("change", (event) => {
   state.operatingDate = event.target.value; const index = state.budgets.findIndex((row) => row.date === state.operatingDate); if (index >= 0) state.selectedScheduleDay = index;
+  state.results.actualHours = clone(state.actualHoursByDate?.[state.operatingDate] || {});
   persist("Operating date updated."); renderAll();
 });
 
 renderAll();
+setInterval(() => { refreshTodayHeader(); renderFact(); }, 60000);
 window.StoreOpsApp = {
   getState: () => clone(state),
   setAccess: (nextAccess = {}) => {
@@ -1243,5 +1513,6 @@ window.StoreOpsApp = {
     showToast(message);
   },
   showToast,
+  calculatePayroll: payrollBreakdown,
 };
 window.StoreOpsProduction?.init(window.StoreOpsApp);
