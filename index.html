@@ -107,9 +107,10 @@
         <section class="page active" id="page-today" data-page-panel="today">
           <div class="hero-row">
             <div>
-              <p class="eyebrow">Thursday · Demonstration store</p>
-              <h2>Good afternoon, team.</h2>
+              <p class="eyebrow" id="today-context">Today · Store operations</p>
+              <h2 id="today-greeting">Good morning, team.</h2>
               <p id="today-summary">The store is above budget WTD. Keep loyalty and buyback moving.</p>
+              <p id="user-schedule-summary" class="user-schedule-summary"></p>
             </div>
             <div class="hero-actions">
               <button type="button" class="button secondary" data-go="schedule">Edit schedule</button>
@@ -164,6 +165,17 @@
                 </div>
                 <div id="today-contests" class="contest-list"></div>
               </article>
+
+              <article class="panel fact-panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow" id="fact-category">Worth knowing</p>
+                    <h3>Fact of the Day</h3>
+                  </div>
+                  <button type="button" class="text-button" id="another-fact">Another fact →</button>
+                </div>
+                <p id="fact-of-the-day" class="fact-text"></p>
+              </article>
             </div>
           </div>
         </section>
@@ -207,13 +219,13 @@
               <div class="panel-header">
                 <div>
                   <h3>Associate roster</h3>
-                  <p>Names feed the schedule, contests, payroll, and nightly report.</p>
+                  <p>Names feed the schedule, contests, payroll, and nightly report. WordPress login can connect each person to their schedule in the private app.</p>
                 </div>
                 <button type="button" class="button secondary small" id="add-associate">+ Add associate</button>
               </div>
               <div class="table-wrap">
                 <table>
-                  <thead><tr><th>Name</th><th>Employee ID</th><th>Role</th><th class="payroll-tool">Hourly pay rate</th><th></th></tr></thead>
+                  <thead><tr><th>Name</th><th>Employee ID</th><th>WordPress login</th><th>Role</th><th class="payroll-tool">Hourly pay rate</th><th></th></tr></thead>
                   <tbody id="associate-rows"></tbody>
                 </table>
               </div>
@@ -331,6 +343,14 @@
             <div class="panel-header">
               <div><p class="eyebrow" id="schedule-day-label"></p><h3>Detailed shifts &amp; assignments</h3></div>
               <div id="schedule-warnings" class="warning-list"></div>
+            </div>
+            <div class="holiday-controls payroll-tool">
+              <label class="toggle"><input id="schedule-holiday" type="checkbox"><span></span> Holiday</label>
+              <div id="holiday-details" class="holiday-details">
+                <label>Holiday name<input id="holiday-name" type="text" placeholder="Thanksgiving"></label>
+                <label>Pay multiplier<select id="holiday-multiplier"><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+              </div>
+              <p>DMIT, GM, and GMIT remain at regular pay. Holiday and overtime premiums never stack.</p>
             </div>
             <div class="shift-header">
               <span>Associate</span><span>Start</span><span>End</span><span>Position</span>
