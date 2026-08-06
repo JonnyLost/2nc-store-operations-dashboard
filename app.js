@@ -161,6 +161,7 @@ const defaultState = {
     { dateTime: "2026-07-30T09:15", associate: "Associate B", manager: "Demo Manager", category: "General", notes: "Reviewed today’s media priorities and closing expectations.", followup: "2026-07-31", status: "Follow-up" },
   ],
   reportSnapshots: [],
+  dailyWorkflow: {},
   nightly: {
     mod: "Demo Lead",
     wins: "Finished above budget and loyalty goal. Strong buyback flow through the afternoon.",
@@ -172,6 +173,7 @@ const defaultState = {
 
 let state = loadState();
 let toastTimer;
+let openPhase;
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function esc(value = "") {
@@ -340,6 +342,7 @@ function migrate(saved) {
   merged.contests = saved.contests || clone(defaultState.contests);
   merged.communications = saved.communications || clone(defaultState.communications);
   merged.reportSnapshots = saved.reportSnapshots || [];
+  merged.dailyWorkflow = saved.dailyWorkflow || {};
   merged.weeks = saved.weeks || {};
   merged.associateDaily = saved.associateDaily || {};
   merged.actualHoursByDate = clone(saved.actualHoursByDate || {});
@@ -595,6 +598,53 @@ function formatContestResult(contest, value = contestTotals(contest).result) {
   return contest.metric === "dollars" ? money(value) : `${number(value)} units`;
 }
 
+function workflowForToday() {
+  state.dailyWorkflow ||= {};
+  state.dailyWorkflow[state.operatingDate] ||= {};
+  return state.dailyWorkflow[state.operatingDate];
+}
+
+function hasTodayResults() {
+  const workflow = workflowForToday();
+  return Boolean(workflow.resultsUpdatedAt) || [
+    state.results.sales, state.results.receivedUnits, state.results.usedUnitsSold,
+    state.results.newSignups, state.results.totalTransactions,
+  ].some((value) => Number(value || 0) > 0);
+}
+
+function timestampText(value, fallback = "Saved previously") {
+  if (!value) return fallback;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? fallback : new Intl.DateTimeFormat("en-US", {
+    hour: "numeric", minute: "2-digit",
+  }).format(date);
+}
+
+function renderGuidedPhases() {
+  const workflow = workflowForToday();
+  const complete = {
+    start: Boolean(workflow.startReviewedAt),
+    run: Boolean(workflow.middayGeneratedAt),
+    close: Boolean(workflow.nightlyGeneratedAt),
+  };
+  const current = !complete.start ? "start" : !complete.run ? "run" : !complete.close ? "close" : "close";
+  if (openPhase === undefined || (openPhase && !document.querySelector(`[data-phase="${openPhase}"]`))) openPhase = current;
+  document.querySelectorAll(".phase-card").forEach((card) => {
+    const phase = card.dataset.phase;
+    const isOpen = phase === openPhase;
+    const isComplete = complete[phase];
+    const isCurrent = phase === current && !isComplete;
+    card.classList.toggle("open", isOpen);
+    card.classList.toggle("complete", isComplete);
+    card.classList.toggle("active-step", isCurrent);
+    card.querySelector(".phase-toggle").setAttribute("aria-expanded", String(isOpen));
+    const icon = card.querySelector(".status-icon");
+    icon.className = `status-icon ${isComplete ? "complete" : isCurrent ? "" : "waiting"}`;
+    icon.textContent = isComplete ? "✓" : "";
+    card.querySelector("em").textContent = isComplete ? "Complete" : isCurrent ? "Now" : "Later";
+  });
+}
+
 function renderToday() {
   refreshTodayHeader();
   renderFact();
@@ -619,6 +669,54 @@ function renderToday() {
   document.querySelector("#today-summary").textContent = calc.wtdVariance >= 0
     ? `The store is ${money(calc.wtdVariance)} above budget WTD. Keep loyalty and buyback moving.`
     : `The store needs ${money(Math.abs(calc.wtdVariance))} to recover the WTD budget. Focus on conversion and loyalty.`;
+  const userShifts = shiftsForSignedInUser();
+  const shiftText = userShifts.length
+    ? userShifts.map((shift) => `${timeText(shift.start)}–${timeText(shift.end)}${shift.position ? ` · ${shift.position}` : ""}`).join(", ")
+    : signedInUserName() ? "You aren’t listed on today’s schedule" : "See today’s schedule and assignment";
+  document.querySelector("#glance-shift").textContent = shiftText;
+  document.querySelector("#glance-team").textContent = `${currentSchedule().length} scheduled · assignments ready`;
+  const dailyGoal = Number(calc.budget.budget || 0);
+  const dailyProgress = dailyGoal ? Math.min(999, Math.round((calc.sales / dailyGoal) * 100)) : 0;
+  document.querySelector("#glance-sales-goal").textContent = `${money(dailyGoal)} · ${dailyProgress}% complete`;
+  const openCommunications = access.canViewCommunications
+    ? state.communications.filter((entry) => entry.status !== "Resolved").length
+    : null;
+  document.querySelector("#glance-communication").textContent = openCommunications === null
+    ? "Available with Communication Log access"
+    : `${openCommunications} open ${openCommunications === 1 ? "note" : "notes"}`;
+
+  const workflow = workflowForToday();
+  const hasResults = hasTodayResults();
+  const nextButton = document.querySelector("#next-action-button");
+  const nextAction = !workflow.startReviewedAt ? {
+    title: "Review today’s plan", copy: "Check the latest results, confirm the schedule, and align the team’s focus before the shift gets moving.",
+    status: "Start here", button: "Review the plan", phase: "start",
+  } : !hasResults ? {
+    title: "Enter today’s results", copy: "Add the latest sales, loyalty, buyback, and staffing numbers. Your reports will use them automatically.",
+    status: "Ready now", button: "Enter results", go: "results", phase: "run",
+  } : !workflow.middayGeneratedAt ? {
+    title: "Complete the midday check-in", copy: "The latest numbers are ready. Add the floor update and send the manager check-in.",
+    status: `${dailyProgress}% of today’s sales goal`, button: "Complete check-in", go: "midday", phase: "run",
+  } : !workflow.nightlyGeneratedAt ? {
+    title: "Close the shift", copy: "Add the closing story, leave tomorrow’s handoff, and generate the nightly report.",
+    status: `Midday sent at ${timestampText(workflow.middayGeneratedAt)}`, button: "Complete nightly report", go: "nightly", phase: "close",
+  } : {
+    title: "Today is complete", copy: "The plan was reviewed and both manager reports are saved. Everything is ready for tomorrow.",
+    status: `Closed at ${timestampText(workflow.nightlyGeneratedAt)}`, button: "Review nightly report", go: "nightly", phase: "close",
+  };
+  document.querySelector("#next-action-title").textContent = nextAction.title;
+  document.querySelector("#next-action-copy").textContent = nextAction.copy;
+  document.querySelector("#next-action-status").textContent = nextAction.status;
+  nextButton.textContent = nextAction.button;
+  if (nextAction.go) nextButton.dataset.go = nextAction.go;
+  else delete nextButton.dataset.go;
+  nextButton.dataset.openPhase = nextAction.phase;
+  renderGuidedPhases();
+  const middayStatus = document.querySelector("#midday-results-status");
+  middayStatus.classList.toggle("has-results", hasResults);
+  middayStatus.innerHTML = hasResults
+    ? `Results are ready · ${money(calc.sales)} sales · ${dailyProgress}% of goal <strong>Update results</strong>`
+    : `Today’s results haven’t been entered yet. <strong>Enter results</strong>`;
   document.querySelector("#today-schedule").innerHTML = currentSchedule().map((shift) => `
     <tr><td><div class="associate-name"><span class="avatar">${esc(initials(shift.associate))}</span>${esc(shift.associate)}</div></td>
     <td>${esc(timeText(shift.start))}–${esc(timeText(shift.end))}</td><td><strong class="position-text">${esc(shift.position)}</strong></td>
@@ -774,6 +872,11 @@ function renderResults() {
     "#result-new-signups": "newSignups", "#result-blank-transactions": "blankTransactions", "#result-total-transactions": "totalTransactions",
   };
   Object.entries(fields).forEach(([selector, key]) => { document.querySelector(selector).value = state.results[key] || 0; });
+  const workflow = workflowForToday();
+  const updatedBy = workflow.resultsUpdatedBy ? ` by ${workflow.resultsUpdatedBy}` : "";
+  document.querySelector("#results-updated-line").textContent = workflow.resultsUpdatedAt
+    ? `Last saved at ${timestampText(workflow.resultsUpdatedAt)}${updatedBy}. Midday and Nightly will use these numbers automatically.`
+    : hasTodayResults() ? "Existing results are loaded. Save them to add a current timestamp." : "No results have been saved for this day.";
   const schedule = currentSchedule();
   const actual = actualPayroll(state.results.actualHours || {});
   document.querySelector("#payroll-results-summary").innerHTML = `
@@ -886,6 +989,11 @@ function renderNightly() {
   ["wins", "opportunities", "followup", "handoff"].forEach((key) => { document.querySelector(`#nightly-${key}`).value = state.nightly[key]; });
 }
 
+function renderMidday() {
+  const workflow = workflowForToday();
+  document.querySelector("#midday-floor-update").value = workflow.middayFloorUpdate || "";
+}
+
 function renderFiscalControls() {
   const yearSelect = document.querySelector("#fiscal-year");
   const weekSelect = document.querySelector("#fiscal-week");
@@ -970,6 +1078,7 @@ function periodAssociateResults(start, end) {
 function generateMiddayReport() {
   const calc = calculations();
   const time = document.querySelector("#midday-time").value || "12:00";
+  const floorUpdate = document.querySelector("#midday-floor-update").value.trim();
   const report = [
     `STORE ${state.store.number} — MIDDAY REPORT — ${timeText(time)}`,
     `${dateText(state.operatingDate, { weekday: "long", month: "long", day: "numeric" })} · FY${String(state.fiscalYear).slice(-2)} Week ${state.fiscalWeek}`, "",
@@ -977,8 +1086,14 @@ function generateMiddayReport() {
     `WTD Sales: ${money(calc.wtdSales)} (${varianceText(calc.wtdVariance)} to budget; ${varianceText(calc.lyVariance)} to LY)`,
     `Loyalty Opportunity: ${percent(calc.opportunityLoyalty)} · Transaction Loyalty: ${percent(calc.transactionLoyalty)}`,
     ...(reportContestLines().length ? ["", "ACTIVE CONTESTS", ...reportContestLines()] : []),
+    "", "FLOOR UPDATE", floorUpdate || "No floor update added.",
   ].join("\n");
   document.querySelector("#midday-preview").textContent = report;
+  const workflow = workflowForToday();
+  workflow.middayFloorUpdate = floorUpdate;
+  workflow.middayGeneratedAt = new Date().toISOString();
+  persist("Midday report generated and saved.");
+  renderToday();
 }
 
 function generatePeriodReport() {
@@ -1082,6 +1197,8 @@ function renderAll() {
   document.body.classList.toggle("owner-access", access.role === "owner" || access.role === "demo");
   document.body.classList.toggle("shortcuts-off", !state.keyboardShortcutsActive);
   document.body.classList.toggle("quick-mode", state.dashboardMode === "quick");
+  const activePage = document.querySelector("[data-page-panel].active")?.dataset.pagePanel || "today";
+  document.body.classList.toggle("active-page-today", activePage === "today");
   const navButtons = [...document.querySelectorAll(".nav-link")];
   navButtons.forEach((button) => {
     const modeHidden = state.dashboardMode === "quick" && quickModeHiddenPages.has(button.dataset.page);
@@ -1112,7 +1229,7 @@ function renderAll() {
   if (suiteStoreContext) suiteStoreContext.textContent = `${state.store.number === "DEMO" ? "Demonstration store" : `Store ${state.store.number}`} • Daily operations`;
   const currentAppStore = document.querySelector("#current-app-store");
   if (currentAppStore) currentAppStore.textContent = `Today at ${state.store.number === "DEMO" ? "the demonstration store" : `Store ${state.store.number}`}`;
-  renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderCommunications(); renderSnapshots();
+  renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderMidday(); renderCommunications(); renderSnapshots();
 }
 
 function updateBudgetTotalsFromInputs() {
@@ -1144,8 +1261,19 @@ function goTo(page) {
   document.querySelectorAll(".nav-link").forEach((button) => button.classList.toggle("active", button.dataset.page === page));
   document.querySelector("#page-title").textContent = pageNames[page][0];
   document.querySelector("#page-eyebrow").textContent = pageNames[page][1];
-  document.body.classList.remove("nav-open");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  document.body.classList.toggle("active-page-today", page === "today");
+  setToolsDrawer(false);
+  // Page height can change dramatically between tools on a phone. Jumping to
+  // the top prevents iOS from animating through an invalid former scroll range.
+  window.scrollTo(0, 0);
+}
+
+function setToolsDrawer(open) {
+  document.body.classList.toggle("nav-open", open);
+  const scrim = document.querySelector("#drawer-scrim");
+  const button = document.querySelector("#all-tools-button");
+  if (scrim) scrim.hidden = !open;
+  if (button) button.setAttribute("aria-expanded", String(open));
 }
 
 function saveSetup() {
@@ -1253,6 +1381,9 @@ function saveResults() {
     contest.weeklyResults ||= {};
     contest.weeklyResults[weekKey()] = week;
   });
+  const workflow = workflowForToday();
+  workflow.resultsUpdatedAt = new Date().toISOString();
+  workflow.resultsUpdatedBy = signedInUserName() || state.store.gm || "Manager";
   persist("Daily associate, buyback, payroll, and contest results saved."); renderAll();
 }
 
@@ -1278,7 +1409,9 @@ function generateNightlyReport() {
     "FOLLOW-UP", state.nightly.followup || "None noted.", "", "TOMORROW’S HANDOFF", state.nightly.handoff || "None noted.",
   ].join("\n");
   document.querySelector("#report-preview").textContent = report;
+  workflowForToday().nightlyGeneratedAt = new Date().toISOString();
   persist("Nightly report generated and saved.");
+  renderToday();
 }
 
 function copyGoalsForward() {
@@ -1323,7 +1456,27 @@ function saveCommunicationRows() {
 
 document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-page]"); const go = event.target.closest("[data-go]");
-  if (nav) goTo(nav.dataset.page); if (go) goTo(go.dataset.go);
+  if (nav) goTo(nav.dataset.page);
+  if (go) { event.preventDefault(); goTo(go.dataset.go); }
+  const phaseToggle = event.target.closest("[data-phase-toggle]");
+  if (phaseToggle) {
+    openPhase = openPhase === phaseToggle.dataset.phaseToggle ? null : phaseToggle.dataset.phaseToggle;
+    renderGuidedPhases();
+  }
+  const phaseOpener = event.target.closest("[data-open-phase]");
+  if (phaseOpener && !phaseOpener.dataset.go) {
+    openPhase = phaseOpener.dataset.openPhase;
+    renderGuidedPhases();
+    document.querySelector(`[data-phase="${openPhase}"]`)?.scrollIntoView({ behavior: "auto", block: "nearest" });
+  }
+  if (event.target.closest("#complete-start-phase")) {
+    const workflow = workflowForToday();
+    workflow.startReviewedAt = new Date().toISOString();
+    workflow.startReviewedBy = signedInUserName() || state.store.gm || "Manager";
+    openPhase = "run";
+    persist("Today’s plan reviewed. Run shift is ready.");
+    renderToday();
+  }
   const modeButton = event.target.closest("[data-dashboard-mode]");
   if (modeButton) {
     state.dashboardMode = modeButton.dataset.dashboardMode;
@@ -1335,7 +1488,22 @@ document.addEventListener("click", (event) => {
     persist(`${state.dashboardMode === "quick" ? "Quick" : "Full"} mode active.`);
     renderAll();
   }
-  if (event.target.closest("#menu-button")) document.body.classList.toggle("nav-open");
+  if (event.target.closest("#all-tools-button")) setToolsDrawer(!document.body.classList.contains("nav-open"));
+  if (event.target.closest("#all-tools-close, #drawer-scrim")) setToolsDrawer(false);
+  if (event.target.closest("#change-day-button")) {
+    const dialog = document.querySelector("#day-dialog");
+    const picker = document.querySelector("#guided-operating-date");
+    const source = document.querySelector("#operating-date");
+    picker.min = source.min; picker.max = source.max; picker.value = state.operatingDate;
+    dialog.showModal();
+  }
+  if (event.target.closest("#use-guided-date")) {
+    const dialog = document.querySelector("#day-dialog");
+    const source = document.querySelector("#operating-date");
+    source.value = document.querySelector("#guided-operating-date").value;
+    source.dispatchEvent(new Event("change", { bubbles: true }));
+    dialog.close();
+  }
   if (event.target.closest("#account-menu")) window.StoreOpsProduction?.openAccount();
   if (event.target.closest("#another-fact")) { factOffset += 1; renderFact(); }
   const appMenu = document.querySelector("#app-menu");
@@ -1472,7 +1640,10 @@ document.addEventListener("focusout", (event) => {
   row.querySelectorAll("output")[1].textContent = money(shiftCost(shift), 2);
 });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape") document.querySelector("#app-menu")?.removeAttribute("open");
+  if (event.key === "Escape") {
+    document.querySelector("#app-menu")?.removeAttribute("open");
+    setToolsDrawer(false);
+  }
   if (!state.keyboardShortcutsActive) return;
   if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey) return;
   const shortcutPages = ["periods", "today", "setup", "goals", "schedule", "results", "agenda", "nightly", "midday", "communications"];
@@ -1495,6 +1666,7 @@ document.querySelector("#fiscal-week").addEventListener("change", (event) => {
 document.querySelector("#operating-date").addEventListener("change", (event) => {
   state.operatingDate = event.target.value; const index = state.budgets.findIndex((row) => row.date === state.operatingDate); if (index >= 0) state.selectedScheduleDay = index;
   state.results.actualHours = clone(state.actualHoursByDate?.[state.operatingDate] || {});
+  openPhase = undefined;
   persist("Operating date updated."); renderAll();
 });
 
