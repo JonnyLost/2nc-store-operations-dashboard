@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#171717">
     <meta
       name="description"
@@ -11,17 +11,39 @@
     <link rel="icon" type="image/svg+xml" href="assets/icon/store-ops-icon.svg">
     <link rel="apple-touch-icon" href="assets/icon/store-ops-icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=1.3.0">
+    <link rel="stylesheet" href="styles.css?v=1.4.0">
   </head>
   <body>
+    <header class="suite-header apple-pro-header">
+      <button type="button" class="suite-brand suite-home" data-go="today" aria-label="Open Command Center">
+        <img src="assets/2nc-logo.png" alt="2nd & Charles">
+        <span>
+          <strong>Command Center</strong>
+          <small id="suite-store-context">Store 2102 · Daily operations</small>
+        </span>
+      </button>
+      <nav class="suite-spaces" aria-label="2NC applications">
+        <a class="current" href="#" data-go="today">Command Center</a>
+        <a href="#page-schedule" data-go="schedule">Store Operations</a>
+        <a href="https://jonathoncox.com/performance-analytics/">Insights</a>
+        <a href="https://jonathoncox.com/authority-suite/">Authority Suite</a>
+      </nav>
+      <div class="suite-header-actions">
+        <button type="button" class="suite-tools-button" id="all-tools-button" aria-controls="all-tools-drawer" aria-expanded="false">
+          <span class="tools-grid" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          All tools
+        </button>
+      </div>
+    </header>
     <div class="app-shell">
-      <aside class="sidebar">
+      <aside class="sidebar" id="all-tools-drawer" aria-label="All tools">
         <div class="brand">
           <span class="brand-mark"><img src="assets/2nc-logo.png" alt="2nd & Charles"></span>
           <div>
-            <strong id="sidebar-store-name">Store 2102</strong>
-            <span>Operations Dashboard</span>
+            <strong>All tools</strong>
+            <span id="sidebar-store-name">Store 2102</span>
           </div>
+          <button type="button" class="drawer-close" id="all-tools-close" aria-label="Close all tools">×</button>
         </div>
 
         <nav class="nav" aria-label="Main navigation">
@@ -77,7 +99,6 @@
 
       <main class="main">
         <header class="topbar">
-          <button type="button" class="menu-button" id="menu-button" aria-label="Open navigation">☰</button>
           <div>
             <p class="eyebrow" id="page-eyebrow">Daily command center</p>
             <h1 id="page-title">Today</h1>
@@ -105,7 +126,7 @@
         </div>
 
         <section class="page active" id="page-today" data-page-panel="today">
-          <div class="hero-row">
+          <div class="hero-row guided-hero">
             <div>
               <p class="eyebrow" id="today-context">Today · Store operations</p>
               <h2 id="today-greeting">Good morning, team.</h2>
@@ -113,71 +134,156 @@
               <p id="user-schedule-summary" class="user-schedule-summary"></p>
             </div>
             <div class="hero-actions">
-              <button type="button" class="button secondary" data-go="schedule">Edit schedule</button>
-              <button type="button" class="button primary" data-go="results">Enter results</button>
+              <button type="button" class="button secondary" id="change-day-button">Change day</button>
             </div>
           </div>
 
-          <div class="metric-grid" id="today-metrics"></div>
-
-          <div class="dashboard-grid">
-            <article class="panel schedule-panel">
-              <div class="panel-header">
-                <div>
-                  <p class="eyebrow">People plan</p>
-                  <h3>Today’s schedule &amp; assignments</h3>
+          <div class="guided-day-grid">
+            <div class="guided-main">
+              <article class="panel next-action-card">
+                <p class="eyebrow" id="next-action-label">Next</p>
+                <h3 id="next-action-title">Enter today’s results</h3>
+                <p id="next-action-copy">Add the latest sales, loyalty, buyback, and staffing numbers. Your reports will use them automatically.</p>
+                <div class="next-action-meta">
+                  <span id="next-action-time">About 2 minutes</span>
+                  <span id="next-action-status">Ready now</span>
                 </div>
-                <button type="button" class="text-button" data-go="schedule">Manage →</button>
-              </div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Associate</th>
-                      <th>Shift</th>
-                      <th>Position</th>
-                      <th>Break</th>
-                      <th>Assignment</th>
-                    </tr>
-                  </thead>
-                  <tbody id="today-schedule"></tbody>
-                </table>
-              </div>
-            </article>
-
-            <div class="side-stack">
-              <article class="panel priority-panel">
-                <div class="panel-header">
-                  <div>
-                    <p class="eyebrow">Shift focus</p>
-                    <h3>Today’s priorities</h3>
-                  </div>
-                </div>
-                <div id="today-priorities" class="priority-list"></div>
+                <button type="button" class="button primary" id="next-action-button" data-go="results">Enter results</button>
               </article>
 
-              <article class="panel">
-                <div class="panel-header">
-                  <div>
-                    <p class="eyebrow">Active contests</p>
-                    <h3>Leaderboard</h3>
-                  </div>
-                </div>
-                <div id="today-contests" class="contest-list"></div>
-              </article>
+              <section class="guided-flow" id="guided-flow" aria-label="Today’s progress">
+                <article class="phase-card" data-phase="start">
+                  <button type="button" class="guided-row phase-toggle" data-phase-toggle="start" aria-expanded="false">
+                    <span class="status-icon waiting" aria-hidden="true"></span>
+                    <span><strong>Start the shift</strong><small>Results, schedule, and focus</small></span>
+                    <em>Review</em>
+                  </button>
+                  <div class="phase-content">
+                    <p>Review the results, schedule, and focus for the day before the shift gets moving.</p>
+                    <div class="plan-review-sections">
+                      <details class="plan-review-section" name="today-plan-review">
+                        <summary><span>Results</span><small>Goals and current performance</small></summary>
+                        <section class="today-detail plan-review-content">
+                          <div class="section-heading">
+                            <div><p class="eyebrow">Live performance</p><h3>Today’s numbers</h3></div>
+                            <button type="button" class="text-button" data-go="results">Update results</button>
+                          </div>
+                          <div class="metric-grid" id="today-metrics"></div>
+                        </section>
+                      </details>
 
-              <article class="panel fact-panel">
-                <div class="panel-header">
-                  <div>
-                    <p class="eyebrow" id="fact-category">Worth knowing</p>
-                    <h3>Fact of the Day</h3>
+                      <details class="plan-review-section" name="today-plan-review">
+                        <summary><span>Schedule</span><small>People, positions, and assignments</small></summary>
+                        <section class="today-detail plan-review-content">
+                          <article class="panel schedule-panel">
+                            <div class="panel-header">
+                              <div><p class="eyebrow">People plan</p><h3>Today’s schedule &amp; assignments</h3></div>
+                              <button type="button" class="text-button" data-go="schedule">Manage</button>
+                            </div>
+                            <div class="table-wrap">
+                              <table>
+                                <thead>
+                                  <tr>
+                                    <th>Associate</th>
+                                    <th>Shift</th>
+                                    <th>Position</th>
+                                    <th>Break</th>
+                                    <th>Assignment</th>
+                                  </tr>
+                                </thead>
+                                <tbody id="today-schedule"></tbody>
+                              </table>
+                            </div>
+                          </article>
+                        </section>
+                      </details>
+
+                      <details class="plan-review-section" name="today-plan-review">
+                        <summary><span>Focus</span><small>Priorities, contests, and communication</small></summary>
+                        <section class="today-detail plan-review-content">
+                          <div class="today-detail-grid">
+                            <article class="panel priority-panel">
+                              <div class="panel-header">
+                                <div><p class="eyebrow">Shift focus</p><h3>Today’s priorities</h3></div>
+                                <button type="button" class="text-button" data-go="communications">Communication notes</button>
+                              </div>
+                              <div id="today-priorities" class="priority-list"></div>
+                            </article>
+
+                            <article class="panel">
+                              <div class="panel-header">
+                                <div><p class="eyebrow">Active contests</p><h3>Leaderboard</h3></div>
+                              </div>
+                              <div id="today-contests" class="contest-list"></div>
+                            </article>
+                          </div>
+                        </section>
+                      </details>
+                    </div>
+                    <button type="button" class="button primary phase-action" id="complete-start-phase">I’ve reviewed today’s plan</button>
                   </div>
-                  <button type="button" class="text-button" id="another-fact">Another fact →</button>
-                </div>
+                </article>
+                <article class="phase-card" data-phase="run">
+                  <button type="button" class="guided-row phase-toggle" data-phase-toggle="run" aria-expanded="false">
+                    <span class="status-icon waiting" aria-hidden="true"></span>
+                    <span><strong>Run the shift</strong><small>Daily results and midday check-in</small></span>
+                    <em>Later</em>
+                  </button>
+                  <div class="phase-content">
+                    <p>Update the live numbers, then add the story behind them.</p>
+                    <div class="phase-links">
+                      <button type="button" data-go="results">Enter or update results</button>
+                      <button type="button" data-go="midday">Midday check-in</button>
+                    </div>
+                  </div>
+                </article>
+                <article class="phase-card" data-phase="close">
+                  <button type="button" class="guided-row phase-toggle" data-phase-toggle="close" aria-expanded="false">
+                    <span class="status-icon waiting" aria-hidden="true"></span>
+                    <span><strong>Close the shift</strong><small>Nightly report and handoff note</small></span>
+                    <em>Later</em>
+                  </button>
+                  <div class="phase-content">
+                    <p>Capture the finish, leave tomorrow’s handoff, and close the loop.</p>
+                    <div class="phase-links">
+                      <button type="button" data-go="nightly">Complete nightly report</button>
+                      <button type="button" data-go="communications">Leave a communication note</button>
+                    </div>
+                  </div>
+                </article>
+              </section>
+            </div>
+
+            <aside class="glance-card">
+              <h3>Today at a glance</h3>
+              <button type="button" class="glance-row" data-go="schedule">
+                <span class="glance-icon" aria-hidden="true">◷</span>
+                <span><strong>Your shift</strong><small id="glance-shift">See today’s schedule and assignment</small></span>
+                <b aria-hidden="true">›</b>
+              </button>
+              <button type="button" class="glance-row" data-go="schedule">
+                <span class="glance-icon" aria-hidden="true">♙</span>
+                <span><strong>Team</strong><small id="glance-team">Today’s team and assignments</small></span>
+                <b aria-hidden="true">›</b>
+              </button>
+              <button type="button" class="glance-row" data-go="goals">
+                <span class="glance-icon" aria-hidden="true">◎</span>
+                <span><strong>Sales goal</strong><small id="glance-sales-goal">Today’s target and progress</small></span>
+                <b aria-hidden="true">›</b>
+              </button>
+              <button type="button" class="glance-row" data-go="communications">
+                <span class="glance-icon" aria-hidden="true">◇</span>
+                <span><strong>Communication</strong><small id="glance-communication">Open manager notes</small></span>
+                <b aria-hidden="true">›</b>
+              </button>
+              <article class="fact-panel guided-fact">
+                <p class="eyebrow" id="fact-category">Worth knowing</p>
                 <p id="fact-of-the-day" class="fact-text"></p>
+                <button type="button" class="text-button" id="another-fact">Another fact</button>
               </article>
-            </div>
+            </aside>
           </div>
+
         </section>
 
         <section class="page" id="page-setup" data-page-panel="setup">
@@ -377,6 +483,7 @@
               <p class="eyebrow">Live scorecard</p>
               <h2>Daily results</h2>
               <p>Enter results throughout the day; WTD totals and goal gaps calculate automatically.</p>
+              <p class="results-updated-line" id="results-updated-line">No results have been saved for this day.</p>
             </div>
             <button type="button" class="button primary" id="save-results">Save results</button>
           </div>
@@ -537,9 +644,17 @@
             </div>
             <div class="button-row">
               <label>Report time<input id="midday-time" type="time" value="14:00"></label>
+              <button type="button" class="button secondary" data-go="results">Update results</button>
               <button type="button" class="button primary" id="generate-midday">Generate report</button>
             </div>
           </div>
+          <button type="button" class="midday-results-status" id="midday-results-status" data-go="results">
+            Today’s results haven’t been entered yet. <strong>Enter results</strong>
+          </button>
+          <article class="panel midday-story-card">
+            <div class="panel-header"><div><p class="eyebrow">Floor update</p><h3>Add the story behind the numbers</h3></div></div>
+            <label>What is happening in the store right now?<textarea id="midday-floor-update" rows="4" placeholder="Traffic, wins, obstacles, staffing, and the plan for the rest of the day"></textarea></label>
+          </article>
           <article class="panel report-preview-panel">
             <div class="panel-header"><h3>Report preview</h3><button type="button" class="button secondary small" id="copy-midday">Copy report</button></div>
             <pre id="midday-preview">Choose the report time, then generate the midday report.</pre>
@@ -600,9 +715,30 @@
           <article class="panel snapshot-panel"><div class="panel-header"><h3>Saved snapshots</h3></div><div id="snapshot-list"></div></article>
         </section>
 
+        <footer class="ecosystem-footer" aria-label="2NC application roles">
+          <span><strong>Run today</strong>Command Center</span>
+          <span><strong>Plan</strong>Store Operations</span>
+          <span><strong>Understand</strong>Performance Analytics</span>
+          <span><strong>Create</strong>Authority Suite</span>
+        </footer>
         <div class="toast" id="toast" role="status" aria-live="polite"></div>
       </main>
     </div>
+
+    <div class="drawer-scrim" id="drawer-scrim" hidden></div>
+    <dialog class="day-dialog" id="day-dialog">
+      <form method="dialog" class="day-dialog-card">
+        <button class="dialog-x" value="cancel" aria-label="Close">×</button>
+        <p class="eyebrow">Command Center</p>
+        <h2>Choose an operating day</h2>
+        <p>The Command Center updates without changing saved work.</p>
+        <label>Operating date<input type="date" id="guided-operating-date"></label>
+        <div class="button-row">
+          <button type="submit" class="button secondary" value="cancel">Cancel</button>
+          <button type="button" class="button primary" id="use-guided-date">Use this day</button>
+        </div>
+      </form>
+    </dialog>
 
     <div class="auth-gate" id="auth-gate" hidden>
       <div class="auth-card">
@@ -625,6 +761,6 @@
 
     <script src="config.js"></script>
     <script src="production.js"></script>
-    <script src="app.js?v=1.3.0"></script>
+    <script src="app.js?v=1.4.0"></script>
   </body>
 </html>
