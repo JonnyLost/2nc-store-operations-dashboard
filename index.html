@@ -11,7 +11,7 @@
     <link rel="icon" type="image/svg+xml" href="assets/icon/store-ops-icon.svg">
     <link rel="apple-touch-icon" href="assets/icon/store-ops-icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
-    <link rel="stylesheet" href="styles.css?v=1.4.0">
+    <link rel="stylesheet" href="styles.css?v=1.6.0">
   </head>
   <body>
     <header class="suite-header apple-pro-header">
@@ -48,38 +48,38 @@
 
         <nav class="nav" aria-label="Main navigation">
           <button type="button" class="nav-link active" data-page="today">
-            <span>01</span> Today <kbd>⌘1</kbd>
+            <span class="tool-icon" aria-hidden="true">⌂</span><span class="tool-label">Today</span><kbd>⌘1</kbd>
           </button>
           <button type="button" class="nav-link" data-page="setup">
-            <span>02</span> Store Setup <kbd>⌘2</kbd>
+            <span class="tool-icon" aria-hidden="true">⚙</span><span class="tool-label">Store Setup</span><kbd>⌘2</kbd>
           </button>
           <button type="button" class="nav-link" data-page="goals">
-            <span>03</span> Budgets &amp; Goals <kbd>⌘3</kbd>
+            <span class="tool-icon" aria-hidden="true">◎</span><span class="tool-label">Budgets &amp; Goals</span><kbd>⌘3</kbd>
           </button>
           <button type="button" class="nav-link" data-page="schedule">
-            <span>04</span> Schedule <kbd>⌘4</kbd>
+            <span class="tool-icon" aria-hidden="true">◷</span><span class="tool-label">Schedule</span><kbd>⌘4</kbd>
           </button>
           <button type="button" class="nav-link" data-page="results">
-            <span>05</span> Daily Results <kbd>⌘5</kbd>
+            <span class="tool-icon" aria-hidden="true">↗</span><span class="tool-label">Daily Results</span><kbd>⌘5</kbd>
           </button>
           <button type="button" class="nav-link" data-page="agenda">
-            <span>06</span> Print Agenda <kbd>⌘6</kbd>
+            <span class="tool-icon" aria-hidden="true">▤</span><span class="tool-label">Print Agenda</span><kbd>⌘6</kbd>
           </button>
           <button type="button" class="nav-link" data-page="nightly">
-            <span>07</span> Nightly Report <kbd>⌘7</kbd>
+            <span class="tool-icon" aria-hidden="true">◐</span><span class="tool-label">Nightly Report</span><kbd>⌘7</kbd>
           </button>
           <button type="button" class="nav-link" data-page="midday">
-            <span>08</span> Midday Report <kbd>⌘8</kbd>
+            <span class="tool-icon" aria-hidden="true">◒</span><span class="tool-label">Midday Report</span><kbd>⌘8</kbd>
           </button>
           <button type="button" class="nav-link" data-page="communications">
-            <span>09</span> Communication Log <kbd>⌘9</kbd>
+            <span class="tool-icon" aria-hidden="true">◇</span><span class="tool-label">Communication Log</span><kbd>⌘9</kbd>
           </button>
           <button type="button" class="nav-link" data-page="periods">
-            <span>10</span> End-of Reports <kbd>⌘0</kbd>
+            <span class="tool-icon" aria-hidden="true">▣</span><span class="tool-label">End-of Reports</span><kbd>⌘0</kbd>
           </button>
         </nav>
 
-        <div class="mode-control" aria-label="Dashboard mode">
+        <div class="mode-control">
           <span>Dashboard mode</span>
           <div class="mode-switch" role="group" aria-label="Choose dashboard mode">
             <button type="button" data-dashboard-mode="quick">Quick</button>
@@ -99,7 +99,10 @@
 
       <main class="main">
         <header class="topbar">
-          <div>
+          <button type="button" class="page-back-button" id="page-back-button" aria-label="Return to previous screen">
+            <span aria-hidden="true">‹</span> Back
+          </button>
+          <div class="topbar-heading">
             <p class="eyebrow" id="page-eyebrow">Daily command center</p>
             <h1 id="page-title">Today</h1>
           </div>
@@ -254,8 +257,8 @@
               </section>
             </div>
 
-            <aside class="glance-card">
-              <h3>Today at a glance</h3>
+            <aside class="glance-card" aria-labelledby="today-at-a-glance-title">
+              <h3 id="today-at-a-glance-title">Today at a glance</h3>
               <button type="button" class="glance-row" data-go="schedule">
                 <span class="glance-icon" aria-hidden="true">◷</span>
                 <span><strong>Your shift</strong><small id="glance-shift">See today’s schedule and assignment</small></span>
@@ -715,6 +718,18 @@
           <article class="panel snapshot-panel"><div class="panel-header"><h3>Saved snapshots</h3></div><div id="snapshot-list"></div></article>
         </section>
 
+        <section class="page metric-detail-page" id="page-metric-detail" data-page-panel="metric-detail" aria-live="polite">
+          <div class="metric-detail-hero">
+            <div>
+              <p class="eyebrow" id="metric-detail-eyebrow">Today’s numbers</p>
+              <h2 id="metric-detail-title">Performance detail</h2>
+              <p id="metric-detail-summary"></p>
+            </div>
+            <button type="button" class="button secondary" data-go="results">Update results</button>
+          </div>
+          <div class="metric-detail-grid" id="metric-detail-content"></div>
+        </section>
+
         <footer class="ecosystem-footer" aria-label="2NC application roles">
           <span><strong>Run today</strong>Command Center</span>
           <span><strong>Plan</strong>Store Operations</span>
@@ -728,7 +743,7 @@
     <div class="drawer-scrim" id="drawer-scrim" hidden></div>
     <dialog class="day-dialog" id="day-dialog">
       <form method="dialog" class="day-dialog-card">
-        <button class="dialog-x" value="cancel" aria-label="Close">×</button>
+        <button type="submit" class="dialog-x" value="cancel" aria-label="Close">×</button>
         <p class="eyebrow">Command Center</p>
         <h2>Choose an operating day</h2>
         <p>The Command Center updates without changing saved work.</p>
@@ -755,12 +770,12 @@
     </div>
 
     <dialog class="production-dialog" id="production-dialog">
-      <form method="dialog" class="dialog-close-row"><button class="remove-button" aria-label="Close">×</button></form>
+      <form method="dialog" class="dialog-close-row"><button type="submit" class="remove-button" aria-label="Close">×</button></form>
       <div id="production-dialog-content"></div>
     </dialog>
 
     <script src="config.js"></script>
     <script src="production.js"></script>
-    <script src="app.js?v=1.4.0"></script>
+    <script src="app.js?v=1.6.0"></script>
   </body>
 </html>
