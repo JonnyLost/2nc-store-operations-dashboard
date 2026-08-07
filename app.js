@@ -62,6 +62,7 @@ const pageNames = {
   midday: ["Midday report", "Time-stamped update"],
   communications: ["Communication log", "Manager-only history"],
   periods: ["End-of reports", "Period close"],
+  "metric-detail": ["Performance detail", "Today’s numbers"],
 };
 
 const demoShifts = [
@@ -174,6 +175,8 @@ const defaultState = {
 let state = loadState();
 let toastTimer;
 let openPhase;
+let currentMetricKey = "wtd-sales";
+const navigationHistory = [];
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function esc(value = "") {
@@ -651,21 +654,21 @@ function renderToday() {
   const calc = calculations();
   const contests = activeContests();
   const metrics = [
-    { label: "WTD sales", value: money(calc.wtdSales), meta: `${varianceText(calc.wtdVariance)} to budget`, detail: `${varianceText(calc.lyVariance)} to LY`, tone: varianceClass(calc.wtdVariance), highlight: true },
-    { label: "Buyback ratio", value: ratio(calc.buybackRatio), meta: `Goal ${ratio(state.goals.buybackRatio)}`, detail: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "On goal" : "Below goal", tone: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "positive" : "negative" },
-    { label: "Loyalty Opportunity", value: percent(calc.opportunityLoyalty), meta: `Goal ${percent(state.goals.loyalty)}`, detail: "Sign-ups ÷ blanks", tone: calc.opportunityLoyalty >= state.goals.loyalty ? "positive" : "negative" },
-    ...(state.payrollToolsActive && access.canViewPayroll ? [{ label: "Payroll cost", value: money(calc.actualCost), meta: `Budget ${money(calc.budget.payrollBudget)}`, detail: `${money(Math.abs(calc.budget.payrollBudget - calc.actualCost))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over"}`, tone: calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative" }] : []),
+    { key: "wtd-sales", label: "WTD sales", value: money(calc.wtdSales), meta: `${varianceText(calc.wtdVariance)} to budget`, detail: `${varianceText(calc.lyVariance)} to LY`, tone: varianceClass(calc.wtdVariance), highlight: true },
+    { key: "buyback", label: "Buyback ratio", value: ratio(calc.buybackRatio), meta: `Goal ${ratio(state.goals.buybackRatio)}`, detail: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "On goal" : "Below goal", tone: Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "positive" : "negative" },
+    { key: "loyalty", label: "Loyalty Opportunity", value: percent(calc.opportunityLoyalty), meta: `Goal ${percent(state.goals.loyalty)}`, detail: "Sign-ups ÷ blanks", tone: calc.opportunityLoyalty >= state.goals.loyalty ? "positive" : "negative" },
+    ...(state.payrollToolsActive && access.canViewPayroll ? [{ key: "payroll", label: "Payroll cost", value: money(calc.actualCost), meta: `Budget ${money(calc.budget.payrollBudget)}`, detail: `${money(Math.abs(calc.budget.payrollBudget - calc.actualCost))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over"}`, tone: calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative" }] : []),
     ...contests.slice(0, 2).map((contest) => {
       const total = contestTotals(contest);
-      return { label: contest.name, value: formatContestResult(contest, total.result), meta: `Goal ${formatContestResult(contest, contest.goal)}`, detail: `${percent(safeDivide(total.result, contest.goal) * 100)} complete`, tone: "neutral" };
+      return { key: `contest-${contest.id}`, label: contest.name, value: formatContestResult(contest, total.result), meta: `Goal ${formatContestResult(contest, contest.goal)}`, detail: `${percent(safeDivide(total.result, contest.goal) * 100)} complete`, tone: "neutral" };
     }),
   ];
   document.querySelector("#today-metrics").style.setProperty("--metric-count", Math.min(metrics.length, 6));
   document.querySelector("#today-metrics").innerHTML = metrics.map((item) => `
-    <article class="metric-card ${item.highlight ? "highlight" : ""}">
+    <button type="button" class="metric-card metric-${esc(item.key)} ${item.highlight ? "highlight" : ""}" data-metric-key="${esc(item.key)}" aria-label="View ${esc(item.label)} details">
       <p class="eyebrow">${esc(item.label)}</p><h3>${esc(item.value)}</h3>
       <div class="metric-meta"><span class="${item.tone}">${esc(item.meta)}</span><span>${esc(item.detail)}</span></div>
-    </article>`).join("");
+    </button>`).join("");
   document.querySelector("#today-summary").textContent = calc.wtdVariance >= 0
     ? `The store is ${money(calc.wtdVariance)} above budget WTD. Keep loyalty and buyback moving.`
     : `The store needs ${money(Math.abs(calc.wtdVariance))} to recover the WTD budget. Focus on conversion and loyalty.`;
@@ -732,6 +735,97 @@ function renderToday() {
     <div class="progress"><span style="width:${Math.min(100, safeDivide(total.result, contest.goal) * 100 || 0)}%"></span></div></div>
     <span class="contest-score">${percent(safeDivide(total.result, contest.goal) * 100)}</span></div>`;
   }).join("");
+}
+
+function detailStat(label, value, note = "") {
+  return `<div class="detail-stat"><span>${esc(label)}</span><strong>${esc(value)}</strong>${note ? `<small>${esc(note)}</small>` : ""}</div>`;
+}
+
+function comparisonRows(items) {
+  const max = Math.max(1, ...items.map((item) => Math.abs(Number(item.value || 0))));
+  return `<div class="comparison-list">${items.map((item) => `
+    <div class="comparison-row"><span>${esc(item.label)}</span><div class="comparison-bar"><i style="width:${Math.max(2, Math.min(100, Math.abs(Number(item.value || 0)) / max * 100))}%"></i></div><strong>${esc(item.display)}</strong></div>`).join("")}</div>`;
+}
+
+function renderMetricDetail(key = currentMetricKey) {
+  currentMetricKey = key;
+  const calc = calculations();
+  const index = currentDayIndex();
+  const title = document.querySelector("#metric-detail-title");
+  const summary = document.querySelector("#metric-detail-summary");
+  const content = document.querySelector("#metric-detail-content");
+  if (!title || !summary || !content) return;
+  let heading = "Performance detail";
+  let description = "A closer look at the numbers behind today’s scorecard.";
+  let html = "";
+
+  if (key === "wtd-sales") {
+    const wtdBudget = state.budgets.slice(0, index + 1).reduce((sum, row) => sum + Number(row.budget || 0), 0);
+    const wtdLastYear = state.budgets.slice(0, index + 1).reduce((sum, row) => sum + Number(row.lastYear || 0), 0);
+    heading = "WTD sales";
+    description = "Week-to-date sales compared with budget and last year, including today’s contribution.";
+    html = `
+      <article class="panel detail-summary-card"><p class="eyebrow">Week to date</p><h3>${esc(money(calc.wtdSales))}</h3><p class="${varianceClass(calc.wtdVariance)}">${esc(varianceText(calc.wtdVariance))} to budget · ${esc(varianceText(calc.lyVariance))} to LY</p></article>
+      <article class="panel"><div class="panel-header"><h3>WTD comparison</h3></div>${comparisonRows([
+        { label: "Sales", value: calc.wtdSales, display: money(calc.wtdSales) },
+        { label: "Budget", value: wtdBudget, display: money(wtdBudget) },
+        { label: "Last year", value: wtdLastYear, display: money(wtdLastYear) },
+      ])}</article>
+      <article class="panel"><div class="panel-header"><h3>Today’s contribution</h3></div><div class="detail-stat-grid">${detailStat("Today sales", money(calc.sales), `${varianceText(calc.salesVariance)} to today’s budget`)}${detailStat("Before today", money(state.beforeToday.sales), "Included in WTD sales")}</div></article>`;
+  } else if (key === "buyback") {
+    heading = "Buyback ratio";
+    description = "Received, non-retail, shelvable, and used-unit activity behind the current ratio.";
+    html = `
+      <article class="panel detail-summary-card"><p class="eyebrow">WTD ratio</p><h3>${esc(ratio(calc.buybackRatio))}</h3><p class="${Number.isFinite(calc.buybackRatio) && calc.buybackRatio >= state.goals.buybackRatio ? "positive" : "negative"}">Goal ${esc(ratio(state.goals.buybackRatio))}</p></article>
+      <article class="panel"><div class="panel-header"><h3>Week to date</h3></div><div class="detail-stat-grid">${detailStat("Received", number(calc.received), "All units received")}${detailStat("Non-retail", number(calc.nonRetail), "Excluded from shelvable")}${detailStat("Shelvable", number(calc.shelvable), "Received minus non-retail")}${detailStat("Used sold", number(calc.usedUnitsSold), "Ratio denominator")}</div></article>
+      <article class="panel"><div class="panel-header"><h3>Today</h3></div><div class="detail-stat-grid">${detailStat("Received", number(state.results.receivedUnits))}${detailStat("Non-retail", number(state.results.nonRetailUnits))}${detailStat("Shelvable", number(state.results.shelvableUnits))}${detailStat("Used sold", number(state.results.usedUnitsSold))}</div></article>`;
+  } else if (key === "loyalty") {
+    const newSignups = Number(state.beforeToday.newSignups || 0) + Number(state.results.newSignups || 0);
+    const blanks = Number(state.beforeToday.blankTransactions || 0) + Number(state.results.blankTransactions || 0);
+    const transactions = Number(state.beforeToday.totalTransactions || 0) + Number(state.results.totalTransactions || 0);
+    const named = Math.max(0, transactions - blanks);
+    heading = "Loyalty opportunity";
+    description = "Sign-ups, blank transactions, and named transactions behind both loyalty measures.";
+    html = `
+      <article class="panel detail-summary-card"><p class="eyebrow">Opportunity loyalty</p><h3>${esc(percent(calc.opportunityLoyalty))}</h3><p class="${calc.opportunityLoyalty >= state.goals.loyalty ? "positive" : "negative"}">Goal ${esc(percent(state.goals.loyalty))} · Transaction loyalty ${esc(percent(calc.transactionLoyalty))}</p></article>
+      <article class="panel"><div class="panel-header"><h3>Week to date</h3></div><div class="detail-stat-grid">${detailStat("New sign-ups", number(newSignups), "Numerator")}${detailStat("Blank transactions", number(blanks), "Opportunity base")}${detailStat("Named transactions", number(named))}${detailStat("Total transactions", number(transactions))}</div></article>
+      <article class="panel"><div class="panel-header"><h3>Today</h3></div><div class="detail-stat-grid">${detailStat("New sign-ups", number(state.results.newSignups))}${detailStat("Blank transactions", number(state.results.blankTransactions))}${detailStat("Total transactions", number(state.results.totalTransactions))}${detailStat("Named transactions", number(Math.max(0, Number(state.results.totalTransactions || 0) - Number(state.results.blankTransactions || 0))))}</div></article>`;
+  } else if (key === "payroll") {
+    heading = "Payroll cost";
+    if (!state.payrollToolsActive || !access.canViewPayroll) {
+      description = "Payroll detail is unavailable for this account.";
+      html = '<article class="panel detail-summary-card"><p class="eyebrow">Restricted</p><h3>Payroll access required</h3><p>Return to the previous screen or contact the store owner for access.</p></article>';
+    } else {
+      description = "Scheduled and actual hours and cost compared with today’s payroll budget.";
+      html = `
+        <article class="panel detail-summary-card"><p class="eyebrow">Actual cost</p><h3>${esc(money(calc.actualCost, 2))}</h3><p class="${calc.actualCost <= calc.budget.payrollBudget ? "positive" : "negative"}">${esc(money(Math.abs(calc.budget.payrollBudget - calc.actualCost), 2))} ${calc.actualCost <= calc.budget.payrollBudget ? "available" : "over budget"}</p></article>
+        <article class="panel"><div class="panel-header"><h3>Hours</h3></div><div class="detail-stat-grid">${detailStat("Scheduled", `${number(calc.scheduledHours, 2)}h`)}${detailStat("Actual", `${number(calc.actualHours, 2)}h`)}</div></article>
+        <article class="panel"><div class="panel-header"><h3>Cost</h3></div><div class="detail-stat-grid">${detailStat("Scheduled", money(calc.scheduledCost, 2))}${detailStat("Actual", money(calc.actualCost, 2))}${detailStat("Budget", money(calc.budget.payrollBudget, 2))}${detailStat("Variance", money(calc.budget.payrollBudget - calc.actualCost, 2))}</div></article>`;
+    }
+  } else if (key.startsWith("contest-")) {
+    const contest = activeContests().find((item) => item.id === key.slice(8));
+    if (contest) {
+      const daily = state.associates.reduce((total, associate) => {
+        const entry = state.associateDaily?.[associate.name]?.contests?.[contest.id] || {};
+        total.result += Number(entry.result || 0); total.units += Number(entry.units || 0); total.transactions += Number(entry.transactions || 0);
+        return total;
+      }, { result: 0, units: 0, transactions: 0 });
+      const week = contestWeekEntry(contest);
+      const campaign = contestTotals(contest);
+      const leaders = Object.entries(week.associateResults || {}).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 5);
+      heading = contest.name;
+      description = "Today, this week, and campaign progress with the current associate leaders.";
+      html = `
+        <article class="panel detail-summary-card"><p class="eyebrow">Campaign progress</p><h3>${esc(formatContestResult(contest, campaign.result))}</h3><p>${esc(percent(safeDivide(campaign.result, contest.goal) * 100))} of ${esc(formatContestResult(contest, contest.goal))}</p></article>
+        <article class="panel"><div class="panel-header"><h3>Progress</h3></div><div class="detail-stat-grid">${detailStat("Today", formatContestResult(contest, daily.result))}${detailStat("This week", formatContestResult(contest, week.result))}${detailStat("Campaign", formatContestResult(contest, campaign.result))}${detailStat("Goal", formatContestResult(contest, contest.goal))}</div></article>
+        <article class="panel"><div class="panel-header"><h3>Additional activity</h3></div><div class="detail-stat-grid">${detailStat("Units today", number(daily.units))}${detailStat("Transactions today", number(daily.transactions))}${detailStat("Campaign units", number(campaign.units))}${detailStat("Campaign transactions", number(campaign.transactions))}</div></article>
+        <article class="panel detail-table-card"><div class="panel-header"><h3>This week’s leaders</h3></div><div class="table-wrap"><table><thead><tr><th>Associate</th><th>Result</th></tr></thead><tbody>${leaders.length ? leaders.map(([name, value]) => `<tr><td>${esc(name)}</td><td><strong>${esc(formatContestResult(contest, value))}</strong></td></tr>`).join("") : '<tr><td colspan="2">No associate results yet.</td></tr>'}</tbody></table></div></article>`;
+    }
+  }
+
+  title.textContent = heading;
+  summary.textContent = description;
+  content.innerHTML = html;
 }
 
 function renderSetup() {
@@ -1206,15 +1300,6 @@ function renderAll() {
     button.classList.toggle("quick-mode-hidden", modeHidden);
     button.classList.toggle("access-hidden", accessHidden);
   });
-  let quickIndex = 0;
-  navButtons.forEach((button, fullIndex) => {
-    const number = button.querySelector("span");
-    if (!number) return;
-    const visibleInQuick = !quickModeHiddenPages.has(button.dataset.page)
-      && !(button.dataset.page === "communications" && !access.canViewCommunications);
-    if (state.dashboardMode === "quick" && visibleInQuick) quickIndex += 1;
-    number.textContent = String(state.dashboardMode === "quick" && visibleInQuick ? quickIndex : fullIndex + 1).padStart(2, "0");
-  });
   document.querySelectorAll("[data-dashboard-mode]").forEach((button) => {
     const active = button.dataset.dashboardMode === state.dashboardMode;
     button.classList.toggle("active", active);
@@ -1230,6 +1315,7 @@ function renderAll() {
   const currentAppStore = document.querySelector("#current-app-store");
   if (currentAppStore) currentAppStore.textContent = `Today at ${state.store.number === "DEMO" ? "the demonstration store" : `Store ${state.store.number}`}`;
   renderToday(); renderSetup(); renderGoals(); renderSchedule(); renderResults(); renderAgenda(); renderNightly(); renderMidday(); renderCommunications(); renderSnapshots();
+  if (activePage === "metric-detail") renderMetricDetail(currentMetricKey);
 }
 
 function updateBudgetTotalsFromInputs() {
@@ -1248,7 +1334,14 @@ function updateBudgetTotalsFromInputs() {
   document.querySelector("#payroll-budget-total").textContent = money(total("payrollBudget"));
 }
 
-function goTo(page) {
+function navigationSnapshot() {
+  return {
+    page: document.querySelector("[data-page-panel].active")?.dataset.pagePanel || "today",
+    scrollY: window.scrollY,
+  };
+}
+
+function goTo(page, options = {}) {
   if (page === "communications" && !access.canViewCommunications) {
     showToast("Your account does not have Communication Log access.");
     return;
@@ -1257,23 +1350,47 @@ function goTo(page) {
     showToast("That tool is available in Full mode.");
     return;
   }
+  const current = navigationSnapshot();
+  if (current.page === page) {
+    setToolsDrawer(false);
+    return;
+  }
+  if (options.record !== false) navigationHistory.push(current);
   document.querySelectorAll("[data-page-panel]").forEach((panel) => panel.classList.toggle("active", panel.dataset.pagePanel === page));
   document.querySelectorAll(".nav-link").forEach((button) => button.classList.toggle("active", button.dataset.page === page));
-  document.querySelector("#page-title").textContent = pageNames[page][0];
-  document.querySelector("#page-eyebrow").textContent = pageNames[page][1];
+  const displayName = page === "metric-detail"
+    ? [document.querySelector("#metric-detail-title")?.textContent || pageNames[page][0], pageNames[page][1]]
+    : pageNames[page];
+  document.querySelector("#page-title").textContent = displayName[0];
+  document.querySelector("#page-eyebrow").textContent = displayName[1];
   document.body.classList.toggle("active-page-today", page === "today");
   setToolsDrawer(false);
   // Page height can change dramatically between tools on a phone. Jumping to
   // the top prevents iOS from animating through an invalid former scroll range.
-  window.scrollTo(0, 0);
+  requestAnimationFrame(() => window.scrollTo(0, Number(options.scrollY || 0)));
+}
+
+function goBack() {
+  const previous = navigationHistory.pop() || { page: "today", scrollY: 0 };
+  goTo(previous.page, { record: false, scrollY: previous.scrollY });
+}
+
+function openMetricDetail(key) {
+  renderMetricDetail(key);
+  goTo("metric-detail");
 }
 
 function setToolsDrawer(open) {
+  const header = document.querySelector(".suite-header");
+  if (header) document.documentElement.style.setProperty("--suite-header-bottom", `${Math.round(header.getBoundingClientRect().bottom)}px`);
   document.body.classList.toggle("nav-open", open);
   const scrim = document.querySelector("#drawer-scrim");
   const button = document.querySelector("#all-tools-button");
   if (scrim) scrim.hidden = !open;
-  if (button) button.setAttribute("aria-expanded", String(open));
+  if (button) {
+    button.setAttribute("aria-expanded", String(open));
+    button.setAttribute("aria-label", open ? "Close all tools" : "Open all tools");
+  }
 }
 
 function saveSetup() {
@@ -1458,6 +1575,9 @@ document.addEventListener("click", (event) => {
   const nav = event.target.closest("[data-page]"); const go = event.target.closest("[data-go]");
   if (nav) goTo(nav.dataset.page);
   if (go) { event.preventDefault(); goTo(go.dataset.go); }
+  if (event.target.closest("#page-back-button")) goBack();
+  const metricCard = event.target.closest("[data-metric-key]");
+  if (metricCard) openMetricDetail(metricCard.dataset.metricKey);
   const phaseToggle = event.target.closest("[data-phase-toggle]");
   if (phaseToggle) {
     openPhase = openPhase === phaseToggle.dataset.phaseToggle ? null : phaseToggle.dataset.phaseToggle;
